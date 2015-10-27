@@ -17,3 +17,5 @@ As for frameworks, we'll use OpenCV (http://opencv.org/) to handle all the image
 Later today I'll try to write an outline for the steps in optical flow, as well as feature detection and the overall project
 
 That's all I got for now, feel free to post whatever helpful info you find up here! 
+
+Blob Detection: http://www.cs.umd.edu/~djacobs/CMSC426/Blob.pdf
