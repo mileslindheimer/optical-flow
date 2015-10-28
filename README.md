@@ -21,3 +21,6 @@ That's all I got for now, feel free to post whatever helpful info you find up he
 Blob Detection: http://www.cs.umd.edu/~djacobs/CMSC426/Blob.pdf
 
 Nice illustration of stages for detecting hand: http://vipulsharma20.blogspot.com/2015/03/gesture-recognition-using-opencv-python.html
+
+Optical flow in OpenCV:
+http://robots.stanford.edu/cs223b05/notes/CS%20223-B%20T1%20stavens_opencv_optical_flow.pdf
