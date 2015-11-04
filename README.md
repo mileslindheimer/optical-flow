@@ -14,9 +14,12 @@ Our biggest immediate challenge is that the Pyramidal L-K algorithm depends on t
 
 Research Links:
 
+Optical flow in OpenCV:
+http://robots.stanford.edu/cs223b05/notes/CS%20223-B%20T1%20stavens_opencv_optical_flow.pdf
+
+OpenCV Docs on Optical Flow
+http://docs.opencv.org/2.4/modules/video/doc/motion_analysis_and_object_tracking.html
+
 Blob Detection: http://www.cs.umd.edu/~djacobs/CMSC426/Blob.pdf
 
 Illustration of stages for detecting hand: http://vipulsharma20.blogspot.com/2015/03/gesture-recognition-using-opencv-python.html
-
-Optical flow in OpenCV:
-http://robots.stanford.edu/cs223b05/notes/CS%20223-B%20T1%20stavens_opencv_optical_flow.pdf
