@@ -1,6 +1,8 @@
 # optical-flow
 Hand Gesture Recognition using Feature Detection and Optical Flow Analysis
 
+<img src="https://github.com/mileslindheimer/optical-flow/blob/master/image_processing.png" />
+
 There are 2 main algorithms people use for optical flow, Lucas-Kanade and Horn-Schunck. Most implementations appear to use an adaptation of the L-K method called Pyramidal L-K, which runs on different resolutions of the same image. Because L-K works best when the differences between frames are not more than a few pixels, which won't always be the case, especially with something like hand gesture recognition - hence the Pyramidal part of the algorithm, shown below. We will implement this algorithm for our optical flow analysis.
 
 Pyramidal Lucas-Kanade Method:
