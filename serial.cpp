@@ -77,6 +77,7 @@ int main(int argc, char** argv )
         /*
             OPTICAL FLOW
         */
+        // See OpticalFLowDemo.cpp for starting baseline code
 
         // General iteration thru opencv image matrix,
         // q is the current pixel
@@ -84,6 +85,7 @@ int main(int argc, char** argv )
         for(int j = 0;j < hand.rows;j++){
             for(int i = 0;i < hand.cols;i++){
                 unsigned char q = input[hand.step * j + i];
+
             }
         }
 
