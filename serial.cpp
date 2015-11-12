@@ -3,11 +3,12 @@
 #include <iostream>
 #include <fstream>
 #include <opencv/highgui.h>
-#include <Eigen/Dense>
 
-#define KERNX 3 //this is the x-size of the kernel. It will always be odd. (for convolution)
-#define KERNY 3 //this is the y-size of the kernel. It will always be odd. (for convolution)
+#define KERNX 5 //this is the x-size of the kernel. It will always be odd. (for convolution)
+#define KERNY 5 //this is the y-size of the kernel. It will always be odd. (for convolution)
 
+#define WIN_X 500
+#define WIN_Y 500
 using namespace cv;
 
 void convolve(float* in, float* out, int data_size_X, int data_size_Y, float* kernel)
@@ -34,10 +35,62 @@ void convolve(float* in, float* out, int data_size_X, int data_size_Y, float* ke
     }
 }
 
+void normalize_kernel( float * kernel, int size_x, int size_y) {
+  int sum = 0;
+  for (int i = 0; i < size_x*size_y; i++ ) {
+    sum += kernel[i];
+  }
+  for (int i = 0; i < size_x*size_y && sum != 0; i++ ) {
+    kernel[i] /= sum;
+  }
+}
+
+static float sqr(float x) {
+    return x*x;
+}
+
+
+int linreg(int n, const float x[], const float y[], float* m, float* b, float* r)
+{
+    float   sumx = 0.0;                        /* sum of x                      */
+    float   sumx2 = 0.0;                       /* sum of x**2                   */
+    float   sumxy = 0.0;                       /* sum of x * y                  */
+    float   sumy = 0.0;                        /* sum of y                      */
+    float   sumy2 = 0.0;                       /* sum of y**2                   */
+
+   for (int i=0;i<n;i++)   
+      { 
+      sumx  += x[i];       
+      sumx2 += sqr(x[i]);  
+      sumxy += x[i] * y[i];
+      sumy  += y[i];      
+      sumy2 += sqr(y[i]); 
+      } 
+
+   float denom = (n * sumx2 - sqr(sumx));
+   if (denom == 0) {
+       // singular matrix. can't solve the problem.
+       *m = 0;
+       *b = 0;
+       *r = 0;
+       return 0;
+   }
+
+   *m = (n * sumxy  -  sumx * sumy) / denom;
+   *b = (sumy * sumx2  -  sumx * sumxy) / denom;
+   if (r!=NULL) {
+      *r = (sumxy - sumx * sumy / n) /          /* compute correlation coeff     */
+            sqrt((sumx2 - sqr(sumx)/n) *
+            (sumy2 - sqr(sumy)/n));
+   }
+
+   return 1; 
+}
+
 int main(int argc, char** argv )
 {
     // frame and hand images as opencv matrices
-    Mat frame, hand;
+    Mat frame;
     // Capture from video
     VideoCapture capture("IMG_1265.mov"); 
 
@@ -47,6 +100,8 @@ int main(int argc, char** argv )
     capture.set(CV_CAP_PROP_FRAME_HEIGHT, 360);
     namedWindow("hand",1);
 
+    float *in_image, *out_image;
+    
     // Intinite loop until manually broken by end of video or keypress
     for(;;)
     {
@@ -57,37 +112,46 @@ int main(int argc, char** argv )
         // Get a new frame from video
         capture >> frame;
         // Adjust the resolution of the video frame, in this case using cubic interpolation
-        resize(frame, frame, Size(640, 360), 0, 0, INTER_CUBIC);
-
-        // This is a hardcoded cropping for the current test video: IMG_1265.mov
-        // Rect myROI(50, 0, 420, 300);
-        // frame = frame(myROI);
+        resize(frame, frame, Size(320, 180), 0, 0, INTER_CUBIC);
 
         // Convert to grayscale
         cvtColor(frame, frame, CV_BGR2GRAY);
-        // Gaussian blur convolution to reduce noise of the image
-        GaussianBlur(frame, frame, Size(5,5), 1.5, 1.5);
 
-        // Binary threshold convolution to separate background from hand
-        // Note: not great, should find a better way of getting the hand's pixels
-        double thresh = 75;
-        double maxValue = 255;
-        threshold(frame, hand, thresh, maxValue, THRESH_BINARY);
+        // Convert from opencv to float arrays
+        int rows = frame.rows;
+        int cols = frame.cols;
+        int step = frame.step;
+        in_image = (float *) malloc(sizeof(float) * rows*cols);
+        out_image = (float *) malloc(sizeof(float) * rows*cols);
+
+        for(int j = 0;j < rows;j++){
+            for(int i = 0;i < cols;i++){
+                in_image[step * j + i] = frame.data[step * j + i];
+            }
+        }
 
         /*
             OPTICAL FLOW
         */
-        // See OpticalFLowDemo.cpp for starting baseline code
 
-        // General iteration thru opencv image matrix,
-        // q is the current pixel
-        unsigned char *input = (unsigned char*)(hand.data);
-        for(int j = 0;j < hand.rows;j++){
-            for(int i = 0;i < hand.cols;i++){
-                unsigned char q = input[hand.step * j + i];
+        // sample of linear regression on hardcoded float arrays
+        int n = 6;
+        float x[6]= {1, 2, 4,  5,  10, 20};
+        float y[6]= {4, 6, 12, 15, 34, 68};
 
-            }
-        }
+        // for(int j = 0;j < 6;j++){
+        //     for(int i = 0;i < 6;i++){
+        //         x[i] = frame.data[i];
+        //     }
+        //     y[j] = frame.data[j];
+        // }
+
+        float m = 0.0;
+        float b = 0.0;
+        float r = 0.0;
+
+        linreg(n,x,y,&m,&b,&r);
+        printf("m=%.04f b=%.04f r=%.04f\n",m,b,r);
 
         /*
             OUTPUT
@@ -96,12 +160,14 @@ int main(int argc, char** argv )
         // Write our output to xml file.
         // Ideally for now our output should be our vector f of flows that we get from
         // our optical flow
-        FileStorage fs("img.xml", FileStorage::WRITE);
-        fs << "hand" << hand;
-        fs.release();
+        // FileStorage fs("img.xml", FileStorage::WRITE);
+        // for (int i = frame.rows*frame.cols - 1; i >= 0; i--) {
+        //     fs << out_image[i];
+        // }
+        // fs.release();
 
         // display image in the "hand" window
-        imshow("hand", hand);
+        imshow("hand", frame);
 
         if(waitKey(30) >= 0) break;
     }
