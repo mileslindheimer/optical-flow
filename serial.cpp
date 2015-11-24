@@ -3,6 +3,7 @@
 #include <iostream>
 #include <fstream>
 #include <opencv/highgui.h>
+#include <vector>
 
 #define KERNX 5 //this is the x-size of the kernel. It will always be odd. (for convolution)
 #define KERNY 5 //this is the y-size of the kernel. It will always be odd. (for convolution)
@@ -10,45 +11,16 @@
 #define WIN_X 500
 #define WIN_Y 500
 using namespace cv;
+using namespace std;
 
-void convolve(float* in, float* out, int data_size_X, int data_size_Y, float* kernel)
-{
-    // the x coordinate of the kernel's center
-    int kern_cent_X = (KERNX - 1)/2;
-    // the y coordinate of the kernel's center
-    int kern_cent_Y = (KERNY - 1)/2;
-    
-    // main convolution loop
-    for(int x = 0; x < data_size_X; x++){ // the x coordinate of the output location we're focusing on
-        for(int y = 0; y < data_size_Y; y++){ // the y coordinate of theoutput location we're focusing on
-            for(int i = -kern_cent_X; i <= kern_cent_X; i++){ // kernel unflipped x coordinate
-                for(int j = -kern_cent_Y; j <= kern_cent_Y; j++){ // kernel unflipped y coordinate
-                    // only do the operation if not out of bounds
-                    if(x+i>-1 && x+i<data_size_X && y+j>-1 && y+j<data_size_Y){
-                        //Note that the kernel is flipped
-                        out[x+y*data_size_X] += 
-                                kernel[(kern_cent_X-i)+(kern_cent_Y-j)*KERNX] * in[(x+i) + (y+j)*data_size_X];
-                    }
-                }
-            }
-        }
-    }
-}
-
-void normalize_kernel( float * kernel, int size_x, int size_y) {
-  int sum = 0;
-  for (int i = 0; i < size_x*size_y; i++ ) {
-    sum += kernel[i];
-  }
-  for (int i = 0; i < size_x*size_y && sum != 0; i++ ) {
-    kernel[i] /= sum;
-  }
-}
+struct Flow {
+  float vX;
+  float vY;
+};
 
 static float sqr(float x) {
     return x*x;
 }
-
 
 int linreg(int n, const float x[], const float y[], float* m, float* b, float* r)
 {
@@ -87,20 +59,47 @@ int linreg(int n, const float x[], const float y[], float* m, float* b, float* r
    return 1; 
 }
 
+void computeDerivatives(Mat img1, Mat img2, Mat Ix, Mat Iy, Mat It){
+  Mat sobelX1, sobelY1, sobelX2, sobelY2;
+  // Compute Sobel_x and Sobel_y on each image
+
+  // first image
+  Sobel(img1, sobelX1, CV_32F, 1, 0);
+  Sobel(img1, sobelY1, CV_32F, 0, 1);
+  // second image
+  Sobel(img2, sobelX2, CV_32F, 1, 0);
+  Sobel(img2, sobelY2, CV_32F, 0, 1);
+
+  // TODO: need to combine approx derivatives computed by sobel
+  // and need to compute constant It
+  Ix = sobelX1 + sobelX2;
+  Iy = sobelY1 + sobelY2;
+  
+}
+
+vector<Flow> lucasKanade(Mat Ix, Mat Iy, Mat It){
+  vector<Flow> flows;
+  return flows;
+}
+
+void pyramidSetup(Mat img1, Mat img2, vector<Mat> pyr1, vector<Mat> pyr2);
+
+vector<Flow> interpolatePLK(vector< vector<Flow> > rawFlows){
+  return rawFlows.at(0);
+}
+
 int main(int argc, char** argv )
 {
-    // frame and hand images as opencv matrices
-    Mat frame;
+    // frame1 and hand images as opencv matrices
+    Mat frame1, frame2;
     // Capture from video
     VideoCapture capture("IMG_1265.mov"); 
 
     // Create window
     cvNamedWindow("Camera_Output", 1);    
     capture.set(CV_CAP_PROP_FRAME_WIDTH, 640);
-    capture.set(CV_CAP_PROP_FRAME_HEIGHT, 360);
+    capture.set(CV_CAP_PROP_FRAME_WIDTH, 360);
     namedWindow("hand",1);
-
-    float *in_image, *out_image;
     
     // Intinite loop until manually broken by end of video or keypress
     for(;;)
@@ -109,65 +108,48 @@ int main(int argc, char** argv )
             IMAGE PROCESSING 
         */
 
+        // first image
+
         // Get a new frame from video
-        capture >> frame;
+        capture >> frame1;
         // Adjust the resolution of the video frame, in this case using cubic interpolation
-        resize(frame, frame, Size(320, 180), 0, 0, INTER_CUBIC);
+        resize(frame1, frame1, Size(320, 180), 0, 0, INTER_CUBIC);
 
         // Convert to grayscale
-        cvtColor(frame, frame, CV_BGR2GRAY);
+        cvtColor(frame1, frame1, CV_BGR2GRAY);
 
-        // Convert from opencv to float arrays
-        int rows = frame.rows;
-        int cols = frame.cols;
-        int step = frame.step;
-        in_image = (float *) malloc(sizeof(float) * rows*cols);
-        out_image = (float *) malloc(sizeof(float) * rows*cols);
+        // second image
 
-        for(int j = 0;j < rows;j++){
-            for(int i = 0;i < cols;i++){
-                in_image[step * j + i] = frame.data[step * j + i];
-            }
-        }
+        // Get a new frame from video
+        capture >> frame2;
+        // Adjust the resolution of the video frame, in this case using cubic interpolation
+        resize(frame2, frame2, Size(320, 180), 0, 0, INTER_CUBIC);
+
+        // Convert to grayscale
+        cvtColor(frame2, frame2, CV_BGR2GRAY);
 
         /*
-            OPTICAL FLOW
+            IMAGE DERIVATIVES
         */
 
-        // sample of linear regression on hardcoded float arrays
-        int n = 6;
-        float x[6]= {1, 2, 4,  5,  10, 20};
-        float y[6]= {4, 6, 12, 15, 34, 68};
+        /*
+            BUILD GAUSSIAN PYRAMIDS
+        */
 
-        // for(int j = 0;j < 6;j++){
-        //     for(int i = 0;i < 6;i++){
-        //         x[i] = frame.data[i];
-        //     }
-        //     y[j] = frame.data[j];
-        // }
+        /*
+            LUCAS-KANADE (for each level in the pyramid)
+        */
 
-        float m = 0.0;
-        float b = 0.0;
-        float r = 0.0;
-
-        linreg(n,x,y,&m,&b,&r);
-        printf("m=%.04f b=%.04f r=%.04f\n",m,b,r);
+        /*
+            INTERPOLATE PLK
+        */
 
         /*
             OUTPUT
         */
 
-        // Write our output to xml file.
-        // Ideally for now our output should be our vector f of flows that we get from
-        // our optical flow
-        // FileStorage fs("img.xml", FileStorage::WRITE);
-        // for (int i = frame.rows*frame.cols - 1; i >= 0; i--) {
-        //     fs << out_image[i];
-        // }
-        // fs.release();
-
         // display image in the "hand" window
-        imshow("hand", frame);
+        imshow("hand", frame1+frame2);
 
         if(waitKey(30) >= 0) break;
     }
