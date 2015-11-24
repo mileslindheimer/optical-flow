@@ -5,11 +5,6 @@
 #include <opencv/highgui.h>
 #include <vector>
 
-#define KERNX 5 //this is the x-size of the kernel. It will always be odd. (for convolution)
-#define KERNY 5 //this is the y-size of the kernel. It will always be odd. (for convolution)
-
-#define WIN_X 500
-#define WIN_Y 500
 using namespace cv;
 using namespace std;
 
@@ -129,11 +124,11 @@ int main(int argc, char** argv )
         cvtColor(frame2, frame2, CV_BGR2GRAY);
 
         /*
-            IMAGE DERIVATIVES
+            BUILD GAUSSIAN PYRAMIDS
         */
 
         /*
-            BUILD GAUSSIAN PYRAMIDS
+            IMAGE DERIVATIVES
         */
 
         /*
