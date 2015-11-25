@@ -54,7 +54,12 @@ int linreg(int n, const float x[], const float y[], float* m, float* b, float* r
    return 1; 
 }
 
-void computeDerivatives(Mat img1, Mat img2, Mat Ix, Mat Iy, Mat It){
+vector<Mat> pyramidSetup(Mat img, int numLevels){
+  vector<Mat> pyramid;
+  return pyramid;
+}
+
+void computeDerivatives(Mat img1, Mat img2, Mat* Ix, Mat* Iy, Mat* It){
   Mat sobelX1, sobelY1, sobelX2, sobelY2;
   // Compute Sobel_x and Sobel_y on each image
 
@@ -67,26 +72,40 @@ void computeDerivatives(Mat img1, Mat img2, Mat Ix, Mat Iy, Mat It){
 
   // TODO: need to combine approx derivatives computed by sobel
   // and need to compute constant It
-  Ix = sobelX1 + sobelX2;
-  Iy = sobelY1 + sobelY2;
+  *Ix = sobelX1 + sobelX2;
+  *Iy = sobelY1 + sobelY2;
   
 }
 
-vector<Flow> lucasKanade(Mat Ix, Mat Iy, Mat It){
+vector<Flow> lucasKanade(Mat* Ix, Mat* Iy, Mat* It, int windowSize){
   vector<Flow> flows;
   return flows;
 }
 
-void pyramidSetup(Mat img1, Mat img2, vector<Mat> pyr1, vector<Mat> pyr2);
-
-vector<Flow> interpolatePLK(vector< vector<Flow> > rawFlows){
-  return rawFlows.at(0);
+vector<Flow> interpolatePLK(vector< vector<Flow> > rawFlows, int numLevels){
+  Flow dummyFlow;
+  dummyFlow.vX = 1; dummyFlow.vY = 2;
+  vector<Flow> dummyFlows;
+  dummyFlows.push_back(dummyFlow);
+  return dummyFlows;
 }
 
-int main(int argc, char** argv )
-{
+int main(int argc, char** argv){
     // frame1 and hand images as opencv matrices
     Mat frame1, frame2;
+
+    int numLevels = 4;
+    vector<Mat> pyr1(numLevels);
+    vector<Mat> pyr2(numLevels);
+    
+    Mat* Ix = NULL;
+    Mat* Iy = NULL;
+    Mat* It = NULL;
+    int windowSize = 16;
+
+    vector< vector<Flow> > rawFlows(numLevels);
+    vector<Flow> finalFlows; 
+
     // Capture from video
     VideoCapture capture("IMG_1265.mov"); 
 
@@ -104,48 +123,50 @@ int main(int argc, char** argv )
         */
 
         // first image
-
-        // Get a new frame from video
         capture >> frame1;
-        // Adjust the resolution of the video frame, in this case using cubic interpolation
         resize(frame1, frame1, Size(320, 180), 0, 0, INTER_CUBIC);
-
-        // Convert to grayscale
         cvtColor(frame1, frame1, CV_BGR2GRAY);
 
         // second image
-
-        // Get a new frame from video
         capture >> frame2;
-        // Adjust the resolution of the video frame, in this case using cubic interpolation
         resize(frame2, frame2, Size(320, 180), 0, 0, INTER_CUBIC);
-
-        // Convert to grayscale
         cvtColor(frame2, frame2, CV_BGR2GRAY);
-
         /*
             BUILD GAUSSIAN PYRAMIDS
         */
+        pyr1 = pyramidSetup(frame1, numLevels);
+        pyr2 = pyramidSetup(frame2, numLevels);
 
-        /*
+        
+        Mat pyrImg1, pyrImg2;
+        vector<Flow> flows;
+        for(int i=0; i<numLevels; i++){
+          /*
             IMAGE DERIVATIVES
-        */
+          */
 
-        /*
+          pyrImg1 = pyr1.at(i);
+          pyrImg2 = pyr2.at(i);
+          computeDerivatives(pyrImg1, pyrImg2, Ix, Iy, It);
+          /*
             LUCAS-KANADE (for each level in the pyramid)
-        */
+          */
+          flows = lucasKanade(Ix, Iy, It, windowSize);
+          rawFlows.push_back(flows);
+        }
 
         /*
             INTERPOLATE PLK
         */
-
+        finalFlows = interpolatePLK(rawFlows, numLevels);
         /*
             OUTPUT
         */
+        // TODO: draw flow field onto output frame
 
-        // display image in the "hand" window
-        imshow("hand", frame1+frame2);
+        imshow("hand", frame1);
 
+        // press the spacekey to stop
         if(waitKey(30) >= 0) break;
     }
     return 0;
