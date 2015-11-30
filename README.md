@@ -1,8 +1,8 @@
 # optical-flow
 Hand Gesture Recognition using Optical Flow Analysis
 
-Explanation:
-https://github.com/mileslindheimer/optical-flow/blob/master/optical_flow_explanation.pdf
-
-Pyramidal Lucas-Kanade Method:
-<img src="http://cdn.iopscience.com/images/0957-0233/24/5/055602/Full/mst449341f3_online.jpg" />
+<img src="https://github.com/mileslindheimer/optical-flow/blob/master/docs/optical_flow_explanation-1.png" />
+<img src="https://github.com/mileslindheimer/optical-flow/blob/master/docs/optical_flow_explanation-2.png" />
+<img src="https://github.com/mileslindheimer/optical-flow/blob/master/docs/optical_flow_explanation-3.png" />
+<img src="https://github.com/mileslindheimer/optical-flow/blob/master/docs/optical_flow_explanation-4.png" />
+<img src="https://github.com/mileslindheimer/optical-flow/blob/master/docs/optical_flow_explanation-5.png" />
