@@ -147,47 +147,6 @@ void saveMat(Mat &M, string s){
     fclose(pOut);
 }
 
-static float sqr(float x) {
-    return x*x;
-}
-
-int linreg(int n, const float x[], const float y[], float* m, float* b, float* r)
-{
-    float   sumx = 0.0;                        /* sum of x                      */
-    float   sumx2 = 0.0;                       /* sum of x**2                   */
-    float   sumxy = 0.0;                       /* sum of x * y                  */
-    float   sumy = 0.0;                        /* sum of y                      */
-    float   sumy2 = 0.0;                       /* sum of y**2                   */
-
-   for (int i=0;i<n;i++)   
-      { 
-      sumx  += x[i];       
-      sumx2 += sqr(x[i]);  
-      sumxy += x[i] * y[i];
-      sumy  += y[i];      
-      sumy2 += sqr(y[i]); 
-      } 
-
-   float denom = (n * sumx2 - sqr(sumx));
-   if (denom == 0) {
-       // singular matrix. can't solve the problem.
-       *m = 0;
-       *b = 0;
-       *r = 0;
-       return 0;
-   }
-
-   *m = (n * sumxy  -  sumx * sumy) / denom;
-   *b = (sumy * sumx2  -  sumx * sumxy) / denom;
-   if (r!=NULL) {
-      *r = (sumxy - sumx * sumy / n) /          /* compute correlation coeff     */
-            sqrt((sumx2 - sqr(sumx)/n) *
-            (sumy2 - sqr(sumy)/n));
-   }
-
-   return 1; 
-}
-
 void getLucasKanadeOpticalFlow(Mat &img1, Mat &img2, Mat &u, Mat &v){
 
     Mat fx = get_fx(img1, img2);
@@ -237,7 +196,10 @@ int main(){
     
     // Intinite loop until manually broken by end of video or keypress
     Mat frame1,frame2, img1, img2;
+    Mat prevFrame;
+    bool firstPass = true;
     for(;;){
+
 
         // first image
         capture >> frame1;
@@ -251,62 +213,115 @@ int main(){
         GaussianBlur(frame2, frame2, Size(9,9), 1.5, 1.5);
 
 
-        frame1.convertTo(img1, CV_64FC1, 1.0/255, 0);
-        frame2.convertTo(img2, CV_64FC1, 1.0/255, 0);
+        //frame1.convertTo(img1, CV_64FC1, 1.0/255, 0);
+        //frame2.convertTo(img2, CV_64FC1, 1.0/255, 0);
+        cvtColor(frame1, frame1, CV_BGR2GRAY);
+        cvtColor(frame2, frame2, CV_BGR2GRAY);
+
+
+        Mat diff = frame2 - frame1;
+
+        threshold(diff, diff, 10, 255, THRESH_BINARY);
+
+        Mat sobelX1, sobelY1, sobelX2, sobelY2;
+        // Compute Sobel_x and Sobel_y on each image
+
+        // first  
+        Sobel(diff, sobelX1, CV_64FC1, 1, 1);
+       // Sobel(diff, sobelY1, CV_64FC1, 0, 1); 
+
+        //cout << diff << "\n";
+        diff = sobelX1 + sobelX2;
+        dilate(diff, diff, Mat(), Point(-1,-1), 2);
+        erode(diff, diff, Mat(), Point(-1,-1), 2);
 
         Mat u = Mat::zeros(img1.rows, img1.cols, CV_64FC1);
         Mat v = Mat::zeros(img1.rows, img1.cols, CV_64FC1);
 
+        if (firstPass) {
+            firstPass = false;
+            prevFrame = diff;
+            continue;
+        }
 
-        getLucasKanadeOpticalFlow(img1, img2, u, v);
 
+        getLucasKanadeOpticalFlow(prevFrame, diff, u, v);
+
+        prevFrame = diff;
+
+        double avgX = 0;
+        double avgY = 0;
+        int counts = 0;
+        for (int i = 0; i < u.rows; i++) {
+            for (int j = 0; j < u.cols; j++) {
+
+                 double x = u.data[u.step*i+j];
+                 double y = v.data[v.step*i+j];
+
+                 double dist = x * x + y * y;
+
+                 if (x != 0 && y != 0) {
+                    avgX += j;
+                    avgY += i;
+                    counts++;
+                 }
+
+            }
+        }
+
+        avgX /= counts;
+        avgY /= counts;
+
+
+        circle(frame2, Point2f(avgX - u.cols/2, avgY), 10, Scalar(0, 255, 0), 2, 8, 0);
+        imshow("hand", frame2);
+        if(waitKey(30) >= 0) break;
 
         // Mat opticalFlow = v;
         // // GaussianBlur(opticalFlow, opticalFlow, Size(5,5), 1.5, 1.5);
 
-        // // // // threshold flows
-        double xAvg = 0;
-        double yAvg = 0;
+        // // // // // threshold flows
+        // double xAvg = 0;
+        // double yAvg = 0;
 
-        int counts = 0;
-        float FLOW_THRESHOLD = 225;
-        float FLOW_THRESHOLD1 = 250;
-        for (int i = 0; i < u.rows; i++) {
-            for (int j = 0; j< u.cols; j++) {
-                //cout << "hi\n";
-                double x = u.data[u.step*i+j];
-                double y = v.data[v.step*i+j];
+        // int counts = 0;
+        // float FLOW_THRESHOLD = 225;
+        // float FLOW_THRESHOLD1 = 250;
+        // for (int i = 0; i < u.rows; i++) {
+        //     for (int j = 0; j< u.cols; j++) {
+        //         //cout << "hi\n";
+        //         double x = u.data[u.step*i+j];
+        //         double y = v.data[v.step*i+j];
 
-                double flowX = x - j;
-                double flowY = y - i;
-
-
-                double dist = sqrt(flowX*flowX + flowY*flowY);
-                //double disty = sqrt(y * y);
-                if (dist > FLOW_THRESHOLD) {
-
-                    // cout << dist << "\n";
-
-                    xAvg += (int)x;
-                    yAvg += (int)y;
-                    counts++;
-                    cout << dist << "\n";
-
-                    circle(frame2, Point2f(j,i), 1, Scalar(255, 0, 0), 2, 8, 0);
-                    if (dist > FLOW_THRESHOLD1){
-                        circle(frame2, Point2f(j,i), 1, Scalar(0, 255, 0), 2, 8, 0);
-                    }
-                }
-            }    
-        }
+        //         double flowX = x - j;
+        //         double flowY = y - i;
 
 
-        if (counts>0){
-            xAvg = xAvg/counts;
-            yAvg = yAvg/counts;
-            circle(frame2, Point2f(yAvg,xAvg), 5, Scalar(0, 0, 255), 2, 8, 0);
+        //         double dist = sqrt(flowX*flowX + flowY*flowY);
+        //         //double disty = sqrt(y * y);
+        //         if (dist > FLOW_THRESHOLD) {
 
-        }
+        //             // cout << dist << "\n";
+
+        //             xAvg += (int)x;
+        //             yAvg += (int)y;
+        //             counts++;
+
+        //             circle(frame2, Point2f(j,i), 1, Scalar(255, 0, 0), 2, 8, 0);
+        //             if (dist > FLOW_THRESHOLD1){
+        //                 circle(frame2, Point2f(j,i), 1, Scalar(0, 255, 0), 2, 8, 0);
+        //             }
+        //         }
+        //     }    
+        // }
+
+
+        // if (counts>0){
+        //     xAvg = xAvg/counts;
+        //     yAvg = yAvg/counts;
+        //     circle(frame2, Point2f(yAvg,xAvg), 5, Scalar(0, 0, 255), 2, 8, 0);
+
+        // }
 
 
         // int THRESHOLD = 1;
@@ -354,7 +369,7 @@ int main(){
         // v.copyTo(points2);
         // int a,b;
         // for (a = 0)
-
+ 
 
         // int i, k;
         // for (i = k = 0; i < points2.size(); i++) {
@@ -381,9 +396,9 @@ int main(){
 
     // Mat fx = get_fx(frame1, frame2);
     // Mat fy = get_fy(frame1, frame2);
-        imshow("hand", frame2);
-        if(waitKey(30) >= 0) break;
-    }
+    //    imshow("hand", sobelX1 + sobelX2);
+    //    if(waitKey(30) >= 0) break;
 
+    }
     return 0;
 }
