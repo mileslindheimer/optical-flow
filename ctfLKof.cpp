@@ -214,53 +214,167 @@ int getMaxLayer(Mat &img){
     return res;
 }
 
+// int main(){
+
+// //    Mat img1 = imread("anim.00.tif", 0);
+// //    Mat img2 = imread("anim.01.tif", 0);
+// //    Mat img1 = imread("frame07.png", 0);
+// //    Mat img2 = imread("frame08.png", 0);
+//     Mat ori1 = imread("table1.jpg", 0);
+//     Mat ori2 = imread("table2.jpg", 0);
+//     Mat img1 = ori1(Rect(0, 0, 640, 448));
+//     Mat img2 = ori2(Rect(0, 0, 640, 448));
+
+
+// //    Mat img1 = imread("car1.jpg", 0);
+// //    Mat img2 = imread("car2.jpg", 0);
+
+
+//     int maxLayer = getMaxLayer(img1);
+//     cout<<img1.rows<<", "<<img1.cols<<", Max layer = "<<maxLayer<<endl;
+
+
+//     img1.convertTo(img1, CV_64FC1, 1.0/255, 0);
+//     img2.convertTo(img2, CV_64FC1, 1.0/255, 0);
+
+
+//     Mat u = Mat::zeros(img1.rows, img1.cols, CV_64FC1);
+//     Mat v = Mat::zeros(img1.rows, img1.cols, CV_64FC1);
+//     Mat u2 = Mat::zeros(img1.rows, img1.cols, CV_64FC1);
+//     Mat v2 = Mat::zeros(img1.rows, img1.cols, CV_64FC1);
+
+//     if(maxLayer >= 1){
+//         coarseToFineEstimation(img1, img2, u, v, maxLayer);
+//         saveMat(u, "U");
+//         saveMat(v, "V");  
+//     }
+
+//     getLucasKanadeOpticalFlow(img1, img2, u2, v2);
+//     saveMat(u2, "U2");
+//     saveMat(v2, "V2"); 
+
+//     // Create window
+//     cvNamedWindow("Camera_Output", 1);    
+//     namedWindow("hand",1);
+//     for(;;) {
+//         imshow("hand", v2); 
+//         if(waitKey(30) >= 0) break;
+//     }
+// //    waitKey(0);
+
+//     return 0;
+// }
 int main(){
+    // FileStorage file("u.xml", FileStorage::WRITE);
+    vector<Point2f> points1;
+    vector<Point2f> points2;
 
-//    Mat img1 = imread("anim.00.tif", 0);
-//    Mat img2 = imread("anim.01.tif", 0);
-//    Mat img1 = imread("frame07.png", 0);
-//    Mat img2 = imread("frame08.png", 0);
-    Mat ori1 = imread("table1.jpg", 0);
-    Mat ori2 = imread("table2.jpg", 0);
-    Mat img1 = ori1(Rect(0, 0, 640, 448));
-    Mat img2 = ori2(Rect(0, 0, 640, 448));
-
-
-//    Mat img1 = imread("car1.jpg", 0);
-//    Mat img2 = imread("car2.jpg", 0);
-
-
-    int maxLayer = getMaxLayer(img1);
-    cout<<img1.rows<<", "<<img1.cols<<", Max layer = "<<maxLayer<<endl;
-
-
-    img1.convertTo(img1, CV_64FC1, 1.0/255, 0);
-    img2.convertTo(img2, CV_64FC1, 1.0/255, 0);
-
-
-    Mat u = Mat::zeros(img1.rows, img1.cols, CV_64FC1);
-    Mat v = Mat::zeros(img1.rows, img1.cols, CV_64FC1);
-    Mat u2 = Mat::zeros(img1.rows, img1.cols, CV_64FC1);
-    Mat v2 = Mat::zeros(img1.rows, img1.cols, CV_64FC1);
-
-    if(maxLayer >= 1){
-        coarseToFineEstimation(img1, img2, u, v, maxLayer);
-        saveMat(u, "U");
-        saveMat(v, "V");  
-    }
-
-    getLucasKanadeOpticalFlow(img1, img2, u2, v2);
-    saveMat(u2, "U2");
-    saveMat(v2, "V2"); 
+    // Capture from video
+    VideoCapture capture(0);//("IMG_1265.mov"); 
 
     // Create window
-    cvNamedWindow("Camera_Output", 1);    
+    capture.set(CV_CAP_PROP_FRAME_WIDTH, 640);
+    capture.set(CV_CAP_PROP_FRAME_WIDTH, 360);
     namedWindow("hand",1);
-    for(;;) {
-        imshow("hand", v2); 
-        if(waitKey(30) >= 0) break;
+    
+    // Intinite loop until manually broken by end of video or keypress
+    Mat frame1,frame2, img1, img2;
+    for(;;){
+
+        // first image
+        capture >> frame1;
+        resize(frame1, frame1, Size(320, 180), 0, 0, INTER_CUBIC);
+
+        // second image
+        capture >> frame2;
+        resize(frame2, frame2, Size(320, 180), 0, 0, INTER_CUBIC);
+
+        frame1.convertTo(img1, CV_64FC1, 1.0/255, 0);
+        frame2.convertTo(img2, CV_64FC1, 1.0/255, 0);
+
+        Mat u = Mat::zeros(img1.rows, img1.cols, CV_64FC1);
+        Mat v = Mat::zeros(img1.rows, img1.cols, CV_64FC1);
+
+        int maxLayer = getMaxLayer(img1);
+        if(maxLayer >= 1){
+            coarseToFineEstimation(img1, img2, u, v, maxLayer);
+        }
+        // getLucasKanadeOpticalFlow(img1, img2, u, v);
+
+
+        Mat opticalFlow = u+v;
+
+
+        // threshold flows
+        double xAvg = 0;
+        double yAvg = 0;
+
+        int counts = 0;
+        float FLOW_THRESHOLD = 340;
+        for (int i = 0; i < u.rows; i++) {
+            for (int j = 0; j< u.cols; j++) {
+                //cout << "hi\n";
+                double x = u.data[u.step*i+j];
+                double y = v.data[v.step*i+j];
+
+                double dist = sqrt(x * x+y*y);
+                //double disty = sqrt(y * y);
+                if (dist > FLOW_THRESHOLD) {
+                    xAvg += (int)i;
+                    yAvg += (int)j;
+                    counts++;
+                    cout << dist << "\n";
+
+                    circle(frame2, Point2f(j,i), 1, Scalar(255, 0, 0), 2, 8, 0);
+                }
+            }    
+        }
+        circle(frame2, Point2f(yAvg,xAvg), 1, Scalar(0, 0, 255), 2, 8, 0);
+
+
+        // if (counts > 0) {
+        //     xAvg = ((int)xAvg/counts);
+        //     yAvg = ((int)yAvg/counts);
+
+        //     cout << xAvg << ", " << yAvg << "\n";
+
+        //     circle(frame2, Point2f(xAvg,yAvg), 50, Scalar(255, 0, 0), 3, 8, 0);
+        // }
+
+        
+        // Write to file!
+        // cout << u << "\n";
+
+        // u.copyTo(points1);
+        // v.copyTo(points2);
+        // int a,b;
+        // for (a = 0)
+
+
+        // int i, k;
+        // for (i = k = 0; i < points2.size(); i++) {
+
+        //     if ((points1[i].x - points2[i].x) > 0) {
+        //       line(opticalFlow, points1[i], points2[i], Scalar(0, 0, 255), 1, 1, 0);
+
+        //       // circle(opticalFlow, points1[i], 2, Scalar(255, 0, 0), 1, 1, 0);
+
+        //       line(opticalFlow, points1[i], points2[i], Scalar(0, 0, 255), 1, 1, 0);
+        //       // circle(opticalFlow, points1[i], 1, Scalar(255, 0, 0), 1, 1, 0);
+        //     } else {
+        //       line(opticalFlow, points1[i], points2[i], Scalar(0, 255, 0), 1, 1, 0);
+
+        //       // circle(opticalFlow, points1[i], 2, Scalar(255, 0, 0), 1, 1, 0);
+
+        //       line(opticalFlow, points1[i], points2[i], Scalar(0, 255, 0), 1, 1, 0);
+        //       // circle(opticalFlow, points1[i], 1, Scalar(255, 0, 0), 1, 1, 0);
+        //     }
+        //     points1[k++] = points1[i];
+
+        // }
+        imshow("hand", opticalFlow);
     }
-//    waitKey(0);
+   // waitKey(33);
 
     return 0;
 }
