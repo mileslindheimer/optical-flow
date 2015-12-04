@@ -147,6 +147,47 @@ void saveMat(Mat &M, string s){
     fclose(pOut);
 }
 
+static float sqr(float x) {
+    return x*x;
+}
+
+int linreg(int n, const float x[], const float y[], float* m, float* b, float* r)
+{
+    float   sumx = 0.0;                        /* sum of x                      */
+    float   sumx2 = 0.0;                       /* sum of x**2                   */
+    float   sumxy = 0.0;                       /* sum of x * y                  */
+    float   sumy = 0.0;                        /* sum of y                      */
+    float   sumy2 = 0.0;                       /* sum of y**2                   */
+
+   for (int i=0;i<n;i++)   
+      { 
+      sumx  += x[i];       
+      sumx2 += sqr(x[i]);  
+      sumxy += x[i] * y[i];
+      sumy  += y[i];      
+      sumy2 += sqr(y[i]); 
+      } 
+
+   float denom = (n * sumx2 - sqr(sumx));
+   if (denom == 0) {
+       // singular matrix. can't solve the problem.
+       *m = 0;
+       *b = 0;
+       *r = 0;
+       return 0;
+   }
+
+   *m = (n * sumxy  -  sumx * sumy) / denom;
+   *b = (sumy * sumx2  -  sumx * sumxy) / denom;
+   if (r!=NULL) {
+      *r = (sumxy - sumx * sumy / n) /          /* compute correlation coeff     */
+            sqrt((sumx2 - sqr(sumx)/n) *
+            (sumy2 - sqr(sumy)/n));
+   }
+
+   return 1; 
+}
+
 void getLucasKanadeOpticalFlow(Mat &img1, Mat &img2, Mat &u, Mat &v){
 
     Mat fx = get_fx(img1, img2);
@@ -183,11 +224,11 @@ int main(){
     vector<Point2f> points2;
 
     // Capture from video
-    VideoCapture capture("pacman.mp4"); 
-    if( !capture.isOpened()){
-         cout << "Cannot open the video file" << endl;
-         return -1;
-    }
+    VideoCapture capture(0);//("pacman.mp4"); 
+    // if( !capture.isOpened()){
+    //      cout << "Cannot open the video file" << endl;
+    //      return -1;
+    // }
 
     // Create window
     capture.set(CV_CAP_PROP_FRAME_WIDTH, 640);
@@ -199,64 +240,73 @@ int main(){
     for(;;){
 
         // first image
-        capture.read(frame1);
-
-        //capture >> frame1;
-        // resize(frame1, frame1, Size(320, 180), 0, 0, INTER_CUBIC);
+        capture >> frame1;
+        resize(frame1, frame1, Size(320, 180), 0, 0, INTER_CUBIC);
 
         // second image
-        capture.read(frame2);
-        //capture >> frame2;
-        // resize(frame2, frame2, Size(320, 180), 0, 0, INTER_CUBIC);
+        capture >> frame2;
+        resize(frame2, frame2, Size(320, 180), 0, 0, INTER_CUBIC);
 
-        // GaussianBlur(frame1, frame1, Size(19,19), 1.5, 1.5);
-        // GaussianBlur(frame2, frame2, Size(19,19), 1.5, 1.5);
-
-
-        // frame1.convertTo(img1, CV_64FC1, 1.0/255, 0);
-        // frame2.convertTo(img2, CV_64FC1, 1.0/255, 0);
-
-        // Mat u = Mat::zeros(img1.rows, img1.cols, CV_64FC1);
-        // Mat v = Mat::zeros(img1.rows, img1.cols, CV_64FC1);
+        GaussianBlur(frame1, frame1, Size(9,9), 1.5, 1.5);
+        GaussianBlur(frame2, frame2, Size(9,9), 1.5, 1.5);
 
 
-        // getLucasKanadeOpticalFlow(img1, img2, u, v);
+        frame1.convertTo(img1, CV_64FC1, 1.0/255, 0);
+        frame2.convertTo(img2, CV_64FC1, 1.0/255, 0);
+
+        Mat u = Mat::zeros(img1.rows, img1.cols, CV_64FC1);
+        Mat v = Mat::zeros(img1.rows, img1.cols, CV_64FC1);
 
 
-        // Mat opticalFlow = u+v;
+        getLucasKanadeOpticalFlow(img1, img2, u, v);
+
+
+        // Mat opticalFlow = v;
         // // GaussianBlur(opticalFlow, opticalFlow, Size(5,5), 1.5, 1.5);
 
         // // // // threshold flows
-        // double xAvg = 0;
-        // double yAvg = 0;
+        double xAvg = 0;
+        double yAvg = 0;
 
-        // int counts = 0;
-        // float FLOW_THRESHOLD = 350;
-        // for (int i = 0; i < u.rows; i++) {
-        //     for (int j = 0; j< u.cols; j++) {
-        //         //cout << "hi\n";
-        //         double x = u.data[u.step*i+j];
-        //         double y = v.data[v.step*i+j];
+        int counts = 0;
+        float FLOW_THRESHOLD = 225;
+        float FLOW_THRESHOLD1 = 250;
+        for (int i = 0; i < u.rows; i++) {
+            for (int j = 0; j< u.cols; j++) {
+                //cout << "hi\n";
+                double x = u.data[u.step*i+j];
+                double y = v.data[v.step*i+j];
 
-        //         double dist = sqrt(x*x + y*y);
-        //         //double disty = sqrt(y * y);
-        //         if (dist > FLOW_THRESHOLD) {
-        //             xAvg += (int)u.step*i+j;
-        //             yAvg += (int)v.step*i+j;
-        //             counts++;
-        //             // cout << dist << "\n";
+                double flowX = x - j;
+                double flowY = y - i;
 
-        //             circle(frame2, Point2f(j,i), 1, Scalar(255, 0, 0), 2, 8, 0);
-        //         }
-        //     }    
-        // }
 
-        // if (counts>0){
-        //     xAvg = xAvg/counts;
-        //     yAvg = yAvg/counts;
-        //     circle(frame2, Point2f(yAvg,xAvg), 5, Scalar(0, 0, 255), 2, 8, 0);
+                double dist = sqrt(flowX*flowX + flowY*flowY);
+                //double disty = sqrt(y * y);
+                if (dist > FLOW_THRESHOLD) {
 
-        // }
+                    // cout << dist << "\n";
+
+                    xAvg += (int)x;
+                    yAvg += (int)y;
+                    counts++;
+                    cout << dist << "\n";
+
+                    circle(frame2, Point2f(j,i), 1, Scalar(255, 0, 0), 2, 8, 0);
+                    if (dist > FLOW_THRESHOLD1){
+                        circle(frame2, Point2f(j,i), 1, Scalar(0, 255, 0), 2, 8, 0);
+                    }
+                }
+            }    
+        }
+
+
+        if (counts>0){
+            xAvg = xAvg/counts;
+            yAvg = yAvg/counts;
+            circle(frame2, Point2f(yAvg,xAvg), 5, Scalar(0, 0, 255), 2, 8, 0);
+
+        }
 
 
         // int THRESHOLD = 1;
@@ -327,9 +377,13 @@ int main(){
         //     points1[k++] = points1[i];
 
         // }
+
+
+    // Mat fx = get_fx(frame1, frame2);
+    // Mat fy = get_fy(frame1, frame2);
         imshow("hand", frame2);
+        if(waitKey(30) >= 0) break;
     }
-   // waitKey(33);
 
     return 0;
 }
