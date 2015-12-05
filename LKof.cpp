@@ -177,6 +177,79 @@ void getLucasKanadeOpticalFlow(Mat &img1, Mat &img2, Mat &u, Mat &v){
 //    saveMat(v, "V");   
 }
 
+vector<Mat> getGaussianPyramid(Mat &img, int nLevels){
+    vector<Mat> pyr;
+    pyr.push_back(img);
+    for(int i = 0; i < nLevels - 1; i++){
+        Mat tmp;
+        pyrDown(pyr[pyr.size() - 1], tmp);
+        pyr.push_back(tmp);
+    }
+    return pyr;
+}
+
+void coarseToFineEstimation(Mat &img1, Mat &img2, Mat &u, Mat &v, int nLevels){
+
+    vector<Mat> pyr1 = getGaussianPyramid(img1, nLevels);
+    vector<Mat> pyr2 = getGaussianPyramid(img2, nLevels);
+    Mat upu, upv;
+    for(int i = nLevels - 1; i >= 0; i--){
+
+        Mat tmpu = Mat::zeros(pyr1[i].rows, pyr1[i].cols, CV_64FC1);
+        Mat tmpv = Mat::zeros(pyr2[i].rows, pyr2[i].cols, CV_64FC1);
+        getLucasKanadeOpticalFlow(pyr1[i], pyr2[i], tmpu, tmpv);
+        if(i != nLevels - 1){
+            tmpu += upu;
+            tmpv += upv;
+        }
+        if(i == 0){
+            u = tmpu;
+            v = tmpv;
+            return;
+        }
+        pyrUp(tmpu, upu);
+        pyrUp(tmpv, upv);
+
+        Mat map1(upu.size(), CV_32FC2);
+        Mat map2(upu.size(), CV_32FC2);
+        for (int y = 0; y < map1.rows; ++y){
+            for (int x = 0; x < map1.cols; ++x){
+                Point2f f = Point2f((float)(upu.ATD(y, x)), (float)(upv.ATD(y, x)));
+                map1.at<Point2f>(y, x) = Point2f(x + f.x / 2, y + f.y / 2);
+                map2.at<Point2f>(y, x) = Point2f(x - f.x / 2, y - f.y / 2);
+            }
+        }
+        Mat warped1, warped2;
+        remap(pyr1[i - 1], warped1, map1, cv::Mat(), INTER_LINEAR);
+        remap(pyr2[i - 1], warped2, map2, cv::Mat(), INTER_LINEAR);
+        warped1.copyTo(pyr1[i - 1]);
+        warped2.copyTo(pyr2[i - 1]);
+    }
+}
+
+int getMaxLayer(Mat &img){
+    int width = img.cols;
+    int height = img.rows;
+    int res = 1;
+    int p = 1;
+    while(1){
+        int tmp = pow(2, p);
+        if(width % tmp == 0) ++ p;
+        else break;
+    }
+    res = p;
+    p = 1;
+    while(1){
+        int tmp = pow(2, p);
+        if(height % tmp == 0) ++ p;
+        else break;
+    }
+    res = res < p ? res : p;
+    return res;
+}
+
+
+
 #define DIFF_THRESH 10
 #define LEARNING_RATE 0.3
 
@@ -237,6 +310,8 @@ int main(){
         Mat u = Mat::zeros(img1.rows, img1.cols, CV_64FC1);
         Mat v = Mat::zeros(img1.rows, img1.cols, CV_64FC1);
 
+        // int maxLayer = getMaxLayer(current_frame);
+        // coarseToFineEstimation(prevDiff, diff, u, v, maxLayer);
         getLucasKanadeOpticalFlow(prevDiff, diff, u, v);
         prevDiff = diff;
 
@@ -260,6 +335,9 @@ int main(){
                     avgX += j;
                     avgY += i;
                     counts++;
+                    //circle(frame, Point2f(avgX, avgY), 2, Scalar(255, 0, 0), 2, 8, 0);
+
+
                 }
 
                 mag.ATD(i,j) = val;
@@ -269,7 +347,7 @@ int main(){
 
         normalize(mag, mag, 255);
 
-        int radius = 50;
+        int radius = 35;
         avgX /= counts;
         avgY /= counts;
 
@@ -278,8 +356,10 @@ int main(){
         avgX *= scale;
         avgY *= scale;
 
+        if (counts > 500) {
+            circle(frame, Point2f(avgX, avgY), radius, Scalar(0, 0, 255), 2, 8, 0);
+        }
 
-        circle(frame, Point2f(avgX, avgY), radius, Scalar(0, 0, 255), 2, 8, 0);
         imshow("hand", frame);
         if(waitKey(30) >= 0) break;
 
