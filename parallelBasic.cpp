@@ -149,10 +149,16 @@ double get_Sum9(Mat &m, int y, int x){
 
 Mat get_Sum9_Mat(Mat &m){
     Mat res = Mat::zeros(m.rows, m.cols, CV_64FC1);
+    int nthr = 4;
+    omp_set_num_threads(nthr);
+    
+    
+    #pragma omp parallel for
     for(int i = 1; i < m.rows - 1; i++){
         for(int j = 1; j < m.cols - 1; j++){
             res.ATD(i, j) = get_Sum9(m, i, j);
         }
+        //cout << "Thread count: " << omp_get_num_threads() << "\n";
     }
     return res;
 }
@@ -176,6 +182,16 @@ void saveMat(Mat &M, string s){
 //       for(int k=0;k<n;k++)
 //         c[i][j] += a[i][k]*b[k][j];
 // }
+
+Mat matMul(Mat a, Mat b){
+    Mat res = Mat::zeros(a.rows, a.cols, CV_64FC1);
+    for (int r=0; r<a.rows; r++){
+        for (int c =0; c<a.cols; c++){
+            res.ATD(r,c) = a.ATD(r,c) * b.ATD(r,c);
+        }
+    }
+    return res;
+}
 
 void do_mv(Mat a, Mat b, Mat c, int n, int i){
     for (int k=0; k<n; k++){
@@ -232,10 +248,15 @@ Mat divideMats(Mat a, Mat b){
     int n = a.rows;
     Mat output = Mat::zeros(n, n, CV_64FC1);
     
+    int nthr = 4;
+    omp_set_num_threads(nthr);
+    
+    #pragma omp parallel for
     for(int i = 0; i<n; i++){
         for(int j = 0; j<n; j++){
             output.ATD(i,j) = a.ATD(i,j)/b.ATD(i,j);
         }
+        //cout << "Thread count: " << omp_get_num_threads() << "\n";
     }
     return output;
 }
@@ -317,7 +338,7 @@ void getLucasKanadeOpticalFlow(Mat &img1, Mat &img2, Mat &u, Mat &v){
     /* End algorithm */
     duration1 = ( clock() - start1 ) / (double) CLOCKS_PER_SEC;
     
-    // cout<<"Summing: "<< duration1 <<" seconds\n";
+    cout<<"get_Sum9_Mat() calls: "<< duration1 <<" seconds\n";
     /* End timer */
     
     
@@ -349,6 +370,18 @@ void getLucasKanadeOpticalFlow(Mat &img1, Mat &img2, Mat &u, Mat &v){
     // cout<<"Least-Squares: "<< duration2 <<" seconds\n";
     
     
+    
+    
+    
+    //Compute time for divideMats
+    clock_t start4;
+    double duration4;
+    
+    start4 = clock();
+    divideMats(u, tmp);
+    divideMats(v, tmp);
+    duration4 = ( clock() - start4 ) / (double) CLOCKS_PER_SEC;
+    cout<<"divideMats: "<< duration4 <<" seconds\n";
     
     //    saveMat(u, "U");
     //    saveMat(v, "V");   
