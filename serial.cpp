@@ -156,41 +156,44 @@ void saveMat(Mat &M, string s){
 //         c[i][j] += a[i][k]*b[k][j];
 // }
 
-void matmuld(Mat a, Mat b, Mat output) {
+Mat matmuld(Mat a, Mat b) {
   // cout << "here\n";
   int n = a.rows;
+  Mat output = Mat::zeros(n, n, CV_64FC1);
+
 
   for(int i=0;i<n;i++){
     for(int j=0;j<n;j++){
       for(int k=0;k<n;k++){
         // c[i][j] += a[i][k]*b[k][j];
         // cout << "entered\n";
-        output.ATD(i,j) = b.ATD(i,k) * b.ATD(k,j);
+        output.ATD(i,j) = a.ATD(i,k) * b.ATD(k,j);
       }
     }
   }
   // cout << "done\n";
-  // return output;
-    
+  return output;
+
+}
+
+Mat divideMats(Mat a, Mat b){
+    int n = a.rows;
+    Mat output = Mat::zeros(n, n, CV_64FC1);
+
+    for(int i = 0; i<n; i++){
+        for(int j = 0; j<n; j++){
+            output.ATD(i,j) = a.ATD(i,j)/b.ATD(i,j);
+        }
+    }
+    return output;
 }
 
 void getLucasKanadeOpticalFlow(Mat &img1, Mat &img2, Mat &u, Mat &v){
 
-    /* Start timer */
-    clock_t start1;
-    double duration1;
-
-    start1 = clock();
-
-    /* Start algorithm */
     Mat fx = get_fx(img1, img2);
     Mat fy = get_fy(img1, img2);
     Mat ft = get_ft(img1, img2);
-    /* End algorithm */
-    duration1 = ( clock() - start1 ) / (double) CLOCKS_PER_SEC;
-
-    // cout<<"Image Derivatives: "<< duration1 <<" seconds\n";
-    /* End timer */
+    
 
     /* Start timer */
     clock_t start2;
@@ -207,16 +210,18 @@ void getLucasKanadeOpticalFlow(Mat &img1, Mat &img2, Mat &u, Mat &v){
     // Mat fyft = fy.mul(ft);
     
 
-    Mat fx2 = Mat::zeros(img1.rows, img1.cols, CV_64FC1);
-    matmuld(fx,fx,fx2);
-    Mat fy2 = Mat::zeros(img1.rows, img1.cols, CV_64FC1);
-    matmuld(fy,fy,fy2);
-    Mat fxfy = Mat::zeros(img1.rows, img1.cols, CV_64FC1);
-    matmuld(fx,fy,fxfy);
-    Mat fxft = Mat::zeros(img1.rows, img1.cols, CV_64FC1);
-    matmuld(fx,ft,fxft);
-    Mat fyft = Mat::zeros(img1.rows, img1.cols, CV_64FC1);
-    matmuld(fy, ft, fyft);
+    Mat fx2 = matmuld(fx,fx);
+    Mat fy2 = matmuld(fy,fy);
+    Mat fxfy = matmuld(fx,fy);
+    Mat fxft = matmuld(fx,ft);
+    Mat fyft = matmuld(fy, ft);
+
+    clock_t start1;
+    double duration1;
+
+    start1 = clock();
+
+    /* Start algorithm */
 
     Mat sumfx2 = get_Sum9_Mat(fx2);
     Mat sumfy2 = get_Sum9_Mat(fy2);
@@ -224,13 +229,42 @@ void getLucasKanadeOpticalFlow(Mat &img1, Mat &img2, Mat &u, Mat &v){
     Mat sumfxfy = get_Sum9_Mat(fxfy);
     Mat sumfyft = get_Sum9_Mat(fyft);
 
+    /* End algorithm */
+    duration1 = ( clock() - start1 ) / (double) CLOCKS_PER_SEC;
+
+    cout<<"Summing: "<< duration1 <<" seconds\n";
+    /* End timer */
+
+
+    clock_t start3;
+    double duration3;
+
+    start3 = clock();
+
+    ///**** Actual Serial implementation without OpenCV
+    ///Commented out because full serial becomes too slow to output
+    ///Need to optimize matmul first
+
+    // Mat tmp = matmuld(sumfx2, sumfy2) - matmuld(sumfxfy, sumfxfy);
+    // u = matmuld(sumfxfy, sumfyft) - matmuld(sumfy2, sumfxft);
+    // v = matmuld(sumfxft, sumfxfy) - matmuld(sumfx2, sumfyft);
+    // u = divideMats(u, tmp);
+    // v = divideMats(v, tmp);
+
+
+
     Mat tmp = sumfx2.mul(sumfy2) - sumfxfy.mul(sumfxfy);
     u = sumfxfy.mul(sumfyft) - sumfy2.mul(sumfxft);
     v = sumfxft.mul(sumfxfy) - sumfx2.mul(sumfyft);
     divide(u, tmp, u);
     divide(v, tmp, v);
+
+    duration3 = ( clock() - start3 ) / (double) CLOCKS_PER_SEC;
+
     /* End algorithm */
     duration2 = ( clock() - start2 ) / (double) CLOCKS_PER_SEC;
+    cout<<"Least-Squares: "<< duration2 <<" seconds\n";
+
 
     cout<<"Lucas-Kanade: "<< duration2 <<" seconds\n";
     /* End timer */
