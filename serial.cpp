@@ -1,173 +1,368 @@
-#include <stdio.h>
-#include <opencv2/opencv.hpp>
-#include <iostream>
+// Lucas & Kanade Optical Flow
+//
+// Author: Eric Yuan
+// Blog: http://eric-yuan.me
+// You are FREE to use the following code for ANY purpose.
+//
+// To run this code, you should have OpenCV in your computer.
+// Have fun with it.
+// 
+
+#include "opencv2/core/core.hpp"
+#include "opencv2/imgproc/imgproc.hpp"
+#include "opencv2/highgui/highgui.hpp"
+#include <math.h>
 #include <fstream>
-#include <opencv/highgui.h>
-#include <vector>
+#include <iostream>
+#include <cstdio>
+#include <ctime>
 
 using namespace cv;
 using namespace std;
 
-struct Flow {
-  float vX;
-  float vY;
-};
+#define ATD at<double>
+#define ATF at<float>
+#define elif else if
 
-static float sqr(float x) {
-    return x*x;
+#ifndef bool
+    #define bool int
+    #define false ((bool)0)
+    #define true  ((bool)1)
+#endif
+
+
+Mat get_fx(Mat &src1, Mat &src2){
+    Mat fx;
+    Mat kernel = Mat::ones(2, 2, CV_64FC1);
+    kernel.ATD(0, 0) = -1.0;
+    kernel.ATD(1, 0) = -1.0;
+
+    Mat dst1, dst2;
+    filter2D(src1, dst1, -1, kernel);
+    filter2D(src2, dst2, -1, kernel);
+
+    fx = dst1 + dst2;
+    return fx;
 }
 
-int linreg(int n, const float x[], const float y[], float* m, float* b, float* r)
-{
-    float   sumx = 0.0;                        /* sum of x                      */
-    float   sumx2 = 0.0;                       /* sum of x**2                   */
-    float   sumxy = 0.0;                       /* sum of x * y                  */
-    float   sumy = 0.0;                        /* sum of y                      */
-    float   sumy2 = 0.0;                       /* sum of y**2                   */
+Mat get_fy(Mat &src1, Mat &src2){
+    Mat fy;
+    Mat kernel = Mat::ones(2, 2, CV_64FC1);
+    kernel.ATD(0, 0) = -1.0;
+    kernel.ATD(0, 1) = -1.0;
 
-   for (int i=0;i<n;i++)   
-      { 
-      sumx  += x[i];       
-      sumx2 += sqr(x[i]);  
-      sumxy += x[i] * y[i];
-      sumy  += y[i];      
-      sumy2 += sqr(y[i]); 
-      } 
+    Mat dst1, dst2;
+    filter2D(src1, dst1, -1, kernel);
+    filter2D(src2, dst2, -1, kernel);
 
-   float denom = (n * sumx2 - sqr(sumx));
-   if (denom == 0) {
-       // singular matrix. can't solve the problem.
-       *m = 0;
-       *b = 0;
-       *r = 0;
-       return 0;
-   }
-
-   *m = (n * sumxy  -  sumx * sumy) / denom;
-   *b = (sumy * sumx2  -  sumx * sumxy) / denom;
-   if (r!=NULL) {
-      *r = (sumxy - sumx * sumy / n) /          /* compute correlation coeff     */
-            sqrt((sumx2 - sqr(sumx)/n) *
-            (sumy2 - sqr(sumy)/n));
-   }
-
-   return 1; 
+    fy = dst1 + dst2;
+    return fy;
 }
 
-vector<Mat> pyramidSetup(Mat img, int numLevels){
-  vector<Mat> pyramid;
-  return pyramid;
+Mat get_ft(Mat &src1, Mat &src2){
+    Mat ft;
+    Mat kernel = Mat::ones(2, 2, CV_64FC1);
+    kernel = kernel.mul(-1);
+
+    Mat dst1, dst2;
+    filter2D(src1, dst1, -1, kernel);
+    kernel = kernel.mul(-1);
+    filter2D(src2, dst2, -1, kernel);
+
+    ft = dst1 + dst2;
+    return ft;
 }
 
-void computeDerivatives(Mat img1, Mat img2, Mat* Ix, Mat* Iy, Mat* It){
-  Mat sobelX1, sobelY1, sobelX2, sobelY2;
-  // Compute Sobel_x and Sobel_y on each image
-
-  // first image
-  Sobel(img1, sobelX1, CV_32F, 1, 0);
-  Sobel(img1, sobelY1, CV_32F, 0, 1);
-  // second image
-  Sobel(img2, sobelX2, CV_32F, 1, 0);
-  Sobel(img2, sobelY2, CV_32F, 0, 1);
-
-  // TODO: need to combine approx derivatives computed by sobel
-  // and need to compute constant It
-  *Ix = sobelX1 + sobelX2;
-  *Iy = sobelY1 + sobelY2;
-  
+bool isInsideImage(int y, int x, Mat &m){
+    int width = m.cols;
+    int height = m.rows;
+    if(x >= 0 && x < width && y >= 0 && y < height) return true;
+    else return false;
 }
 
-vector<Flow> lucasKanade(Mat* Ix, Mat* Iy, Mat* It, int windowSize){
-  vector<Flow> flows;
-  return flows;
+double get_Sum9(Mat &m, int y, int x){
+    if(x < 0 || x >= m.cols) return 0;
+    if(y < 0 || y >= m.rows) return 0;
+
+    double val = 0.0;
+    int tmp = 0;
+    if(isInsideImage(y - 1, x - 1, m)){
+        ++ tmp;
+        val += m.ATD(y - 1, x - 1);
+    }
+    if(isInsideImage(y - 1, x, m)){
+        ++ tmp;
+        val += m.ATD(y - 1, x);
+    }
+    if(isInsideImage(y - 1, x + 1, m)){
+        ++ tmp;
+        val += m.ATD(y - 1, x + 1);
+    }
+    if(isInsideImage(y, x - 1, m)){
+        ++ tmp;
+        val += m.ATD(y, x - 1);
+    }
+    if(isInsideImage(y, x, m)){
+        ++ tmp;
+        val += m.ATD(y, x);
+    }
+    if(isInsideImage(y, x + 1, m)){
+        ++ tmp;
+        val += m.ATD(y, x + 1);
+    }
+    if(isInsideImage(y + 1, x - 1, m)){
+        ++ tmp;
+        val += m.ATD(y + 1, x - 1);
+    }
+    if(isInsideImage(y + 1, x, m)){
+        ++ tmp;
+        val += m.ATD(y + 1, x);
+    }
+    if(isInsideImage(y + 1, x + 1, m)){
+        ++ tmp;
+        val += m.ATD(y + 1, x + 1);
+    }
+    if(tmp == 9) return val;
+    else return m.ATD(y, x) * 9;
 }
 
-vector<Flow> interpolatePLK(vector< vector<Flow> > rawFlows, int numLevels){
-  Flow dummyFlow;
-  dummyFlow.vX = 1; dummyFlow.vY = 2;
-  vector<Flow> dummyFlows;
-  dummyFlows.push_back(dummyFlow);
-  return dummyFlows;
+Mat get_Sum9_Mat(Mat &m){
+    Mat res = Mat::zeros(m.rows, m.cols, CV_64FC1);
+    for(int i = 1; i < m.rows - 1; i++){
+        for(int j = 1; j < m.cols - 1; j++){
+            res.ATD(i, j) = get_Sum9(m, i, j);
+        }
+    }
+    return res;
 }
 
-int main(int argc, char** argv){
-    // frame1 and hand images as opencv matrices
-    Mat frame1, frame2;
+void saveMat(Mat &M, string s){
+    s += ".txt";
+    FILE *pOut = fopen(s.c_str(), "w+");
+    for(int i=0; i<M.rows; i++){
+        for(int j=0; j<M.cols; j++){
+            fprintf(pOut, "%lf", M.ATD(i, j));
+            if(j == M.cols - 1) fprintf(pOut, "\n");
+            else fprintf(pOut, " ");
+        }
+    }
+    fclose(pOut);
+}
 
-    int numLevels = 4;
-    vector<Mat> pyr1(numLevels);
-    vector<Mat> pyr2(numLevels);
+// void matmuld(double **a, double **b, double **c, int n) {
+//   for(int i=0;i<n;i++)
+//     for(int j=0;j<n;j++)
+//       for(int k=0;k<n;k++)
+//         c[i][j] += a[i][k]*b[k][j];
+// }
+
+void matmuld(Mat a, Mat b, Mat output) {
+  // cout << "here\n";
+  int n = a.rows;
+
+  for(int i=0;i<n;i++){
+    for(int j=0;j<n;j++){
+      for(int k=0;k<n;k++){
+        // c[i][j] += a[i][k]*b[k][j];
+        // cout << "entered\n";
+        output.ATD(i,j) = b.ATD(i,k) * b.ATD(k,j);
+      }
+    }
+  }
+  // cout << "done\n";
+  // return output;
     
-    Mat* Ix = NULL;
-    Mat* Iy = NULL;
-    Mat* It = NULL;
-    int windowSize = 16;
+}
 
-    vector< vector<Flow> > rawFlows(numLevels);
-    vector<Flow> finalFlows; 
+void getLucasKanadeOpticalFlow(Mat &img1, Mat &img2, Mat &u, Mat &v){
+
+    /* Start timer */
+    clock_t start1;
+    double duration1;
+
+    start1 = clock();
+
+    /* Start algorithm */
+    Mat fx = get_fx(img1, img2);
+    Mat fy = get_fy(img1, img2);
+    Mat ft = get_ft(img1, img2);
+    /* End algorithm */
+    duration1 = ( clock() - start1 ) / (double) CLOCKS_PER_SEC;
+
+    // cout<<"Image Derivatives: "<< duration1 <<" seconds\n";
+    /* End timer */
+
+    /* Start timer */
+    clock_t start2;
+    double duration2;
+
+    start2 = clock();
+
+    /* Start algorithm */
+
+    // Mat fx2 = fx.mul(fx);
+    // Mat fy2 = fy.mul(fy);
+    // Mat fxfy = fx.mul(fy);
+    // Mat fxft = fx.mul(ft);
+    // Mat fyft = fy.mul(ft);
+    
+
+    Mat fx2 = Mat::zeros(img1.rows, img1.cols, CV_64FC1);
+    matmuld(fx,fx,fx2);
+    Mat fy2 = Mat::zeros(img1.rows, img1.cols, CV_64FC1);
+    matmuld(fy,fy,fy2);
+    Mat fxfy = Mat::zeros(img1.rows, img1.cols, CV_64FC1);
+    matmuld(fx,fy,fxfy);
+    Mat fxft = Mat::zeros(img1.rows, img1.cols, CV_64FC1);
+    matmuld(fx,ft,fxft);
+    Mat fyft = Mat::zeros(img1.rows, img1.cols, CV_64FC1);
+    matmuld(fy, ft, fyft);
+
+    Mat sumfx2 = get_Sum9_Mat(fx2);
+    Mat sumfy2 = get_Sum9_Mat(fy2);
+    Mat sumfxft = get_Sum9_Mat(fxft);
+    Mat sumfxfy = get_Sum9_Mat(fxfy);
+    Mat sumfyft = get_Sum9_Mat(fyft);
+
+    Mat tmp = sumfx2.mul(sumfy2) - sumfxfy.mul(sumfxfy);
+    u = sumfxfy.mul(sumfyft) - sumfy2.mul(sumfxft);
+    v = sumfxft.mul(sumfxfy) - sumfx2.mul(sumfyft);
+    divide(u, tmp, u);
+    divide(v, tmp, v);
+    /* End algorithm */
+    duration2 = ( clock() - start2 ) / (double) CLOCKS_PER_SEC;
+
+    cout<<"Lucas-Kanade: "<< duration2 <<" seconds\n";
+    /* End timer */
+
+//    saveMat(u, "U");
+//    saveMat(v, "V");   
+}
+
+#define DIFF_THRESH 10
+#define LEARNING_RATE 0.3
+
+int main(){
+    vector<Point2f> points1;
+    vector<Point2f> points2;
 
     // Capture from video
-    VideoCapture capture("IMG_1265.mov"); 
+    VideoCapture capture(0);
 
     // Create window
-    cvNamedWindow("Camera_Output", 1);    
     capture.set(CV_CAP_PROP_FRAME_WIDTH, 640);
     capture.set(CV_CAP_PROP_FRAME_WIDTH, 360);
     namedWindow("hand",1);
     
     // Intinite loop until manually broken by end of video or keypress
-    for(;;)
-    {
-        /*
-            IMAGE PROCESSING 
-        */
+    Mat frame, current_frame, img1, img2;
+    Mat prevFrame, prevDiff;
+    bool firstPassFrame = true;
+    bool firstPassDiff = true;
+    for(;;){
 
         // first image
-        capture >> frame1;
-        resize(frame1, frame1, Size(320, 180), 0, 0, INTER_CUBIC);
-        cvtColor(frame1, frame1, CV_BGR2GRAY);
+        capture >> frame;
+        resize(frame, current_frame, Size(300, 300), 0, 0, INTER_CUBIC);
+        GaussianBlur(current_frame, current_frame, Size(9,9), 1.5, 1.5); 
+        cvtColor(current_frame, current_frame, CV_BGR2GRAY);
 
-        // second image
-        capture >> frame2;
-        resize(frame2, frame2, Size(320, 180), 0, 0, INTER_CUBIC);
-        cvtColor(frame2, frame2, CV_BGR2GRAY);
-        /*
-            BUILD GAUSSIAN PYRAMIDS
-        */
-        pyr1 = pyramidSetup(frame1, numLevels);
-        pyr2 = pyramidSetup(frame2, numLevels);
-
-        
-        Mat pyrImg1, pyrImg2;
-        vector<Flow> flows;
-        for(int i=0; i<numLevels; i++){
-          /*
-            IMAGE DERIVATIVES
-          */
-
-          pyrImg1 = pyr1.at(i);
-          pyrImg2 = pyr2.at(i);
-          computeDerivatives(pyrImg1, pyrImg2, Ix, Iy, It);
-          /*
-            LUCAS-KANADE (for each level in the pyramid)
-          */
-          flows = lucasKanade(Ix, Iy, It, windowSize);
-          rawFlows.push_back(flows);
+        if (firstPassFrame) {
+            firstPassFrame = false;
+            prevFrame = current_frame;
+            continue;
         }
 
-        /*
-            INTERPOLATE PLK
-        */
-        finalFlows = interpolatePLK(rawFlows, numLevels);
-        /*
-            OUTPUT
-        */
-        // TODO: draw flow field onto output frame
 
-        imshow("hand", frame1);
+        Mat diff = current_frame - LEARNING_RATE * prevFrame;
+        prevFrame = current_frame; 
 
-        // press the spacekey to stop
+        threshold(diff, diff, DIFF_THRESH, 255, THRESH_TOZERO);
+
+        Mat sobelX1, sobelY1;
+
+        // first  
+        Sobel(diff, sobelX1, CV_64FC1, 1, 0);
+        Sobel(diff, sobelY1, CV_64FC1, 0, 1);
+
+        diff = sobelX1 + sobelY1;
+        dilate(diff, diff, Mat(), Point(-1,-1), 2);
+        erode(diff, diff, Mat(), Point(-1,-1), 2);
+
+
+        if (firstPassDiff) {
+            firstPassDiff = false;
+            prevDiff = diff;
+            continue;
+        }
+
+        Mat u = Mat::zeros(img1.rows, img1.cols, CV_64FC1);
+        Mat v = Mat::zeros(img1.rows, img1.cols, CV_64FC1);
+
+        /* Start timer */
+        clock_t start;
+        double duration;
+
+        start = clock();
+
+        /* Start algorithm */
+        getLucasKanadeOpticalFlow(prevDiff, diff, u, v);
+        /* End algorithm */
+        duration = ( clock() - start ) / (double) CLOCKS_PER_SEC;
+
+        cout<<"Overall Duration: "<< duration <<" seconds\n";
+        /* End timer */
+
+        prevDiff = diff;
+
+        Mat mag = u;
+
+        double avgX = 0;
+        double avgY = 0;
+        int counts = 0;
+        for (int i = 0; i < u.rows; i++) {
+            for (int j = 0; j < u.cols; j++) {
+
+
+                double xFlow = u.ATD(i,j);
+                double yFlow = v.ATD(i,j);
+
+                double val = sqrt(xFlow * xFlow + yFlow * yFlow);
+
+                if (val < 20) {
+                    val = 0;
+                } else {
+                    avgX += j;
+                    avgY += i;
+                    counts++;
+                    circle(frame, Point2f(avgX, avgY), 1, Scalar(255, 0, 0), 2, 8, 0);
+
+
+                }
+
+                mag.ATD(i,j) = val;
+
+            }
+        }
+
+        normalize(mag, mag, 255);
+
+        int radius = 35;
+        avgX /= counts;
+        avgY /= counts;
+
+        // rescale
+        float scale = (frame.cols/current_frame.cols);
+        avgX *= scale;
+        avgY *= scale;
+
+        if (counts > 500) {
+            circle(frame, Point2f(avgX, avgY), radius, Scalar(0, 0, 255), 2, 8, 0);
+        }
+
+        imshow("hand", frame);
         if(waitKey(30) >= 0) break;
+
     }
     return 0;
 }
