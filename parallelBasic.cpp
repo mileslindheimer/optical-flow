@@ -366,7 +366,20 @@ int main(){
     Mat u2 = Mat::zeros(img1.rows, img1.cols, CV_64FC1);
     Mat v2 = Mat::zeros(img1.rows, img1.cols, CV_64FC1);
     
+    /* Start timer */
+    clock_t start;
+    double duration;
+    
+    start = clock();
+    
+    /* Start algorithm */
     getLucasKanadeOpticalFlow(img1, img2, u2, v2);
+    /* End algorithm */
+    duration = ( clock() - start ) / (double) CLOCKS_PER_SEC;
+    
+    cout<<"Overall Duration: "<< duration <<" seconds\n";
+    /* End timer */
+    
     saveMat(u2, "U2");
     saveMat(v2, "V2");
     
