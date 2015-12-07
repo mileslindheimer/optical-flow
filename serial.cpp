@@ -149,31 +149,17 @@ void saveMat(Mat &M, string s){
     fclose(pOut);
 }
 
-// void matmuld(double **a, double **b, double **c, int n) {
-//   for(int i=0;i<n;i++)
-//     for(int j=0;j<n;j++)
-//       for(int k=0;k<n;k++)
-//         c[i][j] += a[i][k]*b[k][j];
-// }
 
 Mat matmuld(Mat a, Mat b) {
-  // cout << "here\n";
-  int n = a.rows;
-  Mat output = Mat::zeros(n, n, CV_64FC1);
+    int n = a.rows;
+    Mat output = Mat::zeros(n, n, CV_64FC1);
 
-
-  for(int i=0;i<n;i++){
-    for(int j=0;j<n;j++){
-      for(int k=0;k<n;k++){
-        // c[i][j] += a[i][k]*b[k][j];
-        // cout << "entered\n";
-        output.ATD(i,j) += a.ATD(i,k) * b.ATD(k,j);
-      }
+    for(int i=0; i<n; i++){
+        for(int j=0; j<n; j++){
+            output.ATD(i,j) = a.ATD(i,j)*b.ATD(i,j);
+        }
     }
-  }
-  // cout << "done\n";
-  return output;
-
+    return output;
 }
 
 Mat divideMats(Mat a, Mat b){
@@ -196,30 +182,36 @@ void getLucasKanadeOpticalFlow(Mat &img1, Mat &img2, Mat &u, Mat &v){
     
 
     /* Start timer */
-    clock_t start2;
-    double duration2;
-
-    start2 = clock();
-
-    /* Start algorithm */
-
-    // Mat fx2 = fx.mul(fx);
-    // Mat fy2 = fy.mul(fy);
-    // Mat fxfy = fx.mul(fy);
-    // Mat fxft = fx.mul(ft);
-    // Mat fyft = fy.mul(ft);
-    
-
-    Mat fx2 = matmuld(fx,fx);
-    Mat fy2 = matmuld(fy,fy);
-    Mat fxfy = matmuld(fx,fy);
-    Mat fxft = matmuld(fx,ft);
-    Mat fyft = matmuld(fy, ft);
-
     clock_t start1;
     double duration1;
 
     start1 = clock();
+
+    /* Start algorithm */
+
+    Mat fx2 = fx.mul(fx);
+    Mat fy2 = fy.mul(fy);
+    Mat fxfy = fx.mul(fy);
+    Mat fxft = fx.mul(ft);
+    Mat fyft = fy.mul(ft);
+    
+
+    // Mat fx2 = matmuld(fx,fx);
+    // Mat fy2 = matmuld(fy,fy);
+    // Mat fxfy = matmuld(fx,fy);
+    // Mat fxft = matmuld(fx,ft);
+    // Mat fyft = matmuld(fy, ft);
+
+    /* End algorithm */
+    duration1 = ( clock() - start1 ) / (double) CLOCKS_PER_SEC;
+
+    cout<<"Matmul: "<< duration1*1000 <<" milliseconds\n";
+    /* End timer */
+
+    clock_t start2;
+    double duration2;
+
+    start2 = clock();
 
     /* Start algorithm */
 
@@ -230,9 +222,9 @@ void getLucasKanadeOpticalFlow(Mat &img1, Mat &img2, Mat &u, Mat &v){
     Mat sumfyft = get_Sum9_Mat(fyft);
 
     /* End algorithm */
-    duration1 = ( clock() - start1 ) / (double) CLOCKS_PER_SEC;
+    duration2 = ( clock() - start2 ) / (double) CLOCKS_PER_SEC;
 
-    cout<<"Summing: "<< duration1 <<" seconds\n";
+    cout<<"Summing: "<< duration2*1000 <<" milliseconds\n";
     /* End timer */
 
 
@@ -240,10 +232,6 @@ void getLucasKanadeOpticalFlow(Mat &img1, Mat &img2, Mat &u, Mat &v){
     double duration3;
 
     start3 = clock();
-
-    ///**** Actual Serial implementation without OpenCV
-    ///Commented out because full serial becomes too slow to output
-    ///Need to optimize matmul first
 
     // Mat tmp = matmuld(sumfx2, sumfy2) - matmuld(sumfxfy, sumfxfy);
     // u = matmuld(sumfxfy, sumfyft) - matmuld(sumfy2, sumfxft);
@@ -262,11 +250,9 @@ void getLucasKanadeOpticalFlow(Mat &img1, Mat &img2, Mat &u, Mat &v){
     duration3 = ( clock() - start3 ) / (double) CLOCKS_PER_SEC;
 
     /* End algorithm */
-    duration2 = ( clock() - start2 ) / (double) CLOCKS_PER_SEC;
-    cout<<"Least-Squares: "<< duration2 <<" seconds\n";
+    duration3 = ( clock() - start3 ) / (double) CLOCKS_PER_SEC;
+    cout<<"Least-Squares: "<< duration3*1000 <<" milliseconds\n";
 
-
-    cout<<"Lucas-Kanade: "<< duration2 <<" seconds\n";
     /* End timer */
 
 //    saveMat(u, "U");
@@ -344,7 +330,7 @@ int main(){
         /* End algorithm */
         duration = ( clock() - start ) / (double) CLOCKS_PER_SEC;
 
-        cout<<"Overall Duration: "<< duration <<" seconds\n";
+        cout<<"Overall Duration: "<< duration*1000 <<" milliseconds\n";
         /* End timer */
 
         prevDiff = diff;
@@ -369,7 +355,7 @@ int main(){
                     avgX += j;
                     avgY += i;
                     counts++;
-                    circle(frame, Point2f(avgX, avgY), 1, Scalar(255, 0, 0), 2, 8, 0);
+                    // circle(frame, Point2f(avgX, avgY), 1, Scalar(255, 0, 0), 2, 8, 0);
 
 
                 }
