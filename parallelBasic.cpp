@@ -83,9 +83,9 @@ Mat get_ft(Mat &src1, Mat &src2){
     return ft;
 }
 
-bool isInsideImage(int y, int x, Mat &m){
-    int width = m.cols;
-    int height = m.rows;
+bool isInsideImage(int y, int x, Mat &m, int width, int height){
+    //int width = m.cols;
+    //int height = m.rows;
     if(x >= 0 && x < width && y >= 0 && y < height) return true;
     else return false;
 }
@@ -117,39 +117,41 @@ double get_Sum9(Mat &m, int y, int x){
     
     double val = 0.0;
     int tmp = 0;
-    if(isInsideImage(y - 1, x - 1, m)){
+    int w = m.cols;
+    int h = m.rows;
+    if(isInsideImage(y - 1, x - 1, m, w, h)){
         ++ tmp;
         val += m.ATD(y - 1, x - 1);
     }
-    if(isInsideImage(y - 1, x, m)){
+    if(isInsideImage(y - 1, x, m, w, h)){
         ++ tmp;
         val += m.ATD(y - 1, x);
     }
-    if(isInsideImage(y - 1, x + 1, m)){
+    if(isInsideImage(y - 1, x + 1, m, w, h)){
         ++ tmp;
         val += m.ATD(y - 1, x + 1);
     }
-    if(isInsideImage(y, x - 1, m)){
+    if(isInsideImage(y, x - 1, m, w, h)){
         ++ tmp;
         val += m.ATD(y, x - 1);
     }
-    if(isInsideImage(y, x, m)){
+    if(isInsideImage(y, x, m, w, h)){
         ++ tmp;
         val += m.ATD(y, x);
     }
-    if(isInsideImage(y, x + 1, m)){
+    if(isInsideImage(y, x + 1, m, w, h)){
         ++ tmp;
         val += m.ATD(y, x + 1);
     }
-    if(isInsideImage(y + 1, x - 1, m)){
+    if(isInsideImage(y + 1, x - 1, m, w, h)){
         ++ tmp;
         val += m.ATD(y + 1, x - 1);
     }
-    if(isInsideImage(y + 1, x, m)){
+    if(isInsideImage(y + 1, x, m, w, h)){
         ++ tmp;
         val += m.ATD(y + 1, x);
     }
-    if(isInsideImage(y + 1, x + 1, m)){
+    if(isInsideImage(y + 1, x + 1, m, w, h)){
         ++ tmp;
         val += m.ATD(y + 1, x + 1);
     }
@@ -476,10 +478,10 @@ void getLucasKanadeOpticalFlow(Mat &img1, Mat &img2, Mat &u, Mat &v){
     
     time = timestamp();
     
-    /*
-    divide(u, tmp, u);
-    divide(v, tmp, v);
-    */
+    
+    //divide(u, tmp, u);
+    //divide(v, tmp, v);
+    
     
     #pragma omp parallel num_threads(2)
     {
@@ -497,7 +499,7 @@ void getLucasKanadeOpticalFlow(Mat &img1, Mat &img2, Mat &u, Mat &v){
     
     new_time = timestamp();
     elapsed = new_time - time;
-    cout<<"Least-Squares Part 2: "<< elapsed <<" seconds\n";
+    cout<<"Least-Squares Part 2 (divide): "<< elapsed <<" seconds\n";
     
     
     
@@ -505,10 +507,12 @@ void getLucasKanadeOpticalFlow(Mat &img1, Mat &img2, Mat &u, Mat &v){
     
     //Compute time for divideMats
     /*
-    
+    time = timestamp();
     divideMats(u, tmp);
     divideMats(v, tmp);
-        cout<<"divideMats: "<< duration4 <<" seconds\n";
+    new_time = timestamp();
+    elapsed = new_time - time;
+    cout<<"divideMats: "<< elapsed <<" seconds\n";
     */
       
 }
