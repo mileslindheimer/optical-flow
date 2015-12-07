@@ -290,9 +290,44 @@ void getLucasKanadeOpticalFlow(Mat &img1, Mat &img2, Mat &u, Mat &v){
 
 void getLucasKanadeOpticalFlow(Mat &img1, Mat &img2, Mat &u, Mat &v){
     
+    /* Start timer */
+    clock_t startDer;
+    double durationDer;
+    
+    startDer = clock();
+    
+    /* Start algorithm */
     Mat fx = get_fx(img1, img2);
     Mat fy = get_fy(img1, img2);
     Mat ft = get_ft(img1, img2);
+    /*
+    Mat fx;
+    Mat fy;
+    Mat ft;
+    
+    #pragma omp parallel num_threads(3)
+    {
+        if(omp_get_thread_num()==0)
+        {
+            fx = get_fx(img1, img2);
+            cout<<"Derivatives thread 0\n ";
+        }
+        else if (omp_get_thread_num()==1)
+        {
+            fy = get_fy(img1, img2);
+            cout<<"Derivatives thread 1\n ";
+        }
+        else if (omp_get_thread_num()==2)
+        {
+            ft = get_ft(img1, img2);
+            cout<<"Derivatives thread 2\n ";
+        }
+    }
+     */
+    
+    durationDer = ( clock() - startDer ) / (double) CLOCKS_PER_SEC;
+    cout<<"Derivatives: "<< durationDer*1000 <<" milliseconds\n";
+    
     
     
     /* Start timer */
