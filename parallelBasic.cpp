@@ -18,6 +18,9 @@
 #include <ctime>
 #include <omp.h>
 
+#include <sys/time.h>
+#include <time.h>
+
 using namespace cv;
 using namespace std;
 
@@ -30,6 +33,13 @@ using namespace std;
 #define false ((bool)0)
 #define true  ((bool)1)
 #endif
+
+double timestamp()
+{
+    struct timeval tv;
+    gettimeofday (&tv, 0);
+    return tv.tv_sec + 1e-6*tv.tv_usec;
+}
 
 Mat get_fx(Mat &src1, Mat &src2){
     Mat fx;
@@ -153,7 +163,7 @@ Mat get_Sum9_Mat(Mat &m){
     omp_set_num_threads(nthr);
     
     
-    #pragma omp parallel for
+    //#pragma omp parallel for
     for(int i = 1; i < m.rows - 1; i++){
         for(int j = 1; j < m.cols - 1; j++){
             res.ATD(i, j) = get_Sum9(m, i, j);
@@ -291,11 +301,12 @@ void getLucasKanadeOpticalFlow(Mat &img1, Mat &img2, Mat &u, Mat &v){
 void getLucasKanadeOpticalFlow(Mat &img1, Mat &img2, Mat &u, Mat &v){
     
     /* Start timer */
+    /*
     clock_t startDer;
     double durationDer;
     
     startDer = clock();
-    
+    */
     /* Start algorithm */
     Mat fx = get_fx(img1, img2);
     Mat fy = get_fy(img1, img2);
@@ -325,17 +336,19 @@ void getLucasKanadeOpticalFlow(Mat &img1, Mat &img2, Mat &u, Mat &v){
     }
      */
     
+    /*
     durationDer = ( clock() - startDer ) / (double) CLOCKS_PER_SEC;
     cout<<"Derivatives: "<< durationDer*1000 <<" milliseconds\n";
-    
+    */
     
     
     /* Start timer */
+    /*
     clock_t start2;
     double duration2;
     
     start2 = clock();
-    
+    */
     /* Start algorithm */
     
     Mat fx2 = fx.mul(fx);
@@ -352,6 +365,7 @@ void getLucasKanadeOpticalFlow(Mat &img1, Mat &img2, Mat &u, Mat &v){
     Mat fyft = matmuld(fy, ft);
      */
     
+    /*
     duration2 = ( clock() - start2 ) / (double) CLOCKS_PER_SEC;
     cout<<"matmul: "<< duration2*1000 <<" milliseconds\n";
     
@@ -361,7 +375,9 @@ void getLucasKanadeOpticalFlow(Mat &img1, Mat &img2, Mat &u, Mat &v){
     double duration1;
     
     start1 = clock();
+    */
     
+    double time = timestamp();
     /* Start algorithm */
     
     Mat sumfx2 = get_Sum9_Mat(fx2);
@@ -371,17 +387,23 @@ void getLucasKanadeOpticalFlow(Mat &img1, Mat &img2, Mat &u, Mat &v){
     Mat sumfyft = get_Sum9_Mat(fyft);
     
     /* End algorithm */
+    
+    double new_time = timestamp();
+    double elapsed = new_time - time;
+    printf("get_Sum9_Mat() elapsed time = %f seconds.\n", elapsed);
+    /*
     duration1 = ( clock() - start1 ) / (double) CLOCKS_PER_SEC;
     
     cout<<"get_Sum9_Mat() calls: "<< duration1 <<" seconds\n";
+     */
     /* End timer */
     
-    
+    /*
     clock_t start3;
     double duration3;
     
     start3 = clock();
-    
+    */
     ///**** Actual Serial implementation without OpenCV
     ///Commented out because full serial becomes too slow to output
     ///Need to optimize matmul first
@@ -399,7 +421,7 @@ void getLucasKanadeOpticalFlow(Mat &img1, Mat &img2, Mat &u, Mat &v){
     divide(u, tmp, u);
     divide(v, tmp, v);
     
-    duration3 = ( clock() - start3 ) / (double) CLOCKS_PER_SEC;
+    //duration3 = ( clock() - start3 ) / (double) CLOCKS_PER_SEC;
     
     /* End algorithm */
     // cout<<"Least-Squares: "<< duration2 <<" seconds\n";
@@ -409,6 +431,7 @@ void getLucasKanadeOpticalFlow(Mat &img1, Mat &img2, Mat &u, Mat &v){
     
     
     //Compute time for divideMats
+    /*
     clock_t start4;
     double duration4;
     
@@ -417,10 +440,12 @@ void getLucasKanadeOpticalFlow(Mat &img1, Mat &img2, Mat &u, Mat &v){
     divideMats(v, tmp);
     duration4 = ( clock() - start4 ) / (double) CLOCKS_PER_SEC;
     cout<<"divideMats: "<< duration4 <<" seconds\n";
-    
+    */
     //    saveMat(u, "U");
     //    saveMat(v, "V");   
 }
+
+
 
 int main(){
     Mat ori1 = imread("table1.jpg", 0);
@@ -435,21 +460,28 @@ int main(){
     Mat v2 = Mat::zeros(img1.rows, img1.cols, CV_64FC1);
     
     /* Start timer */
+    /*
     clock_t start;
     double duration;
     
     start = clock();
-    
+    */
     /* Start algorithm */
+    double newStart = timestamp();
     getLucasKanadeOpticalFlow(img1, img2, u2, v2);
+    double newEnd = timestamp();
     /* End algorithm */
+    /*
     duration = ( clock() - start ) / (double) CLOCKS_PER_SEC;
     
     cout<<"Overall Duration: "<< duration <<" seconds\n";
+    */
+    double newElapsed = newEnd - newStart;
+    printf("elapsed time = %f seconds.\n", newElapsed);
     /* End timer */
     
-    saveMat(u2, "U2");
-    saveMat(v2, "V2");
+    //saveMat(u2, "U2");
+    //saveMat(v2, "V2");
     
     //check results for u2
     std::ifstream infile("U2Test.txt");
