@@ -31,6 +31,59 @@ using namespace std;
     #define true  ((bool)1)
 #endif
 
+#define NTHR 2
+
+// typedef struct
+// {
+//   double **a;
+//   double **b;
+//   double **c;
+//   int start;
+//   int end;
+// } worker_t;
+
+// void *matmuld_worker(void *arg)
+// {
+//   worker_t *t = static_cast<worker_t*>(arg);
+//   double **a = t->a;
+//   double **b = t->b;
+//   double **c = t->c;
+//   for(int i = t->start; i < t->end; i++)
+//     {
+//       for(int j = 0; j < 1024; j++)
+//     {
+//       for(int k = 0; k < 1024; k++)
+//         {
+//           c[i][j] += a[i][k]*b[k][j];
+//         }
+//     }
+//     }
+// }
+
+// void pthread_matmuld(double **a,
+//              double **b,
+//              double **c,
+//              int nthr)
+// {
+//   /* CS194: use pthreads to launch 
+//    * matrix multply worker threads.
+//    *
+//    * The structure and worker function
+//    * are good hints...
+//    */
+//   pthread_t *thr = new pthread_t[nthr];
+//   worker_t *tInfo = new worker_t[nthr];
+
+//   tInfo[0].a = a;
+//   tInfo[0].b = b;
+//   tInfo[0].c = c;
+//   tInfo[0].start = 0;
+//   tInfo[0].end = 1024;
+//   matmuld_worker((void*)tInfo);
+  
+//   delete [] thr;
+//   delete [] tInfo;
+// }
 
 Mat get_fx(Mat &src1, Mat &src2){
     Mat fx;
@@ -150,63 +203,22 @@ void saveMat(Mat &M, string s){
     fclose(pOut);
 }
 
-// void matmuld(double **a, double **b, double **c, int n) {
-//   for(int i=0;i<n;i++)
-//     for(int j=0;j<n;j++)
-//       for(int k=0;k<n;k++)
-//         c[i][j] += a[i][k]*b[k][j];
-// }
-
-void do_mv(Mat a, Mat b, Mat c, int n, int i){
-    for (int k=0; k<n; k++){
-        for (int j=0; j<n; j++){
-            c.ATD(i,j) += a.ATD(i,k) * b.ATD(k,j);
-        }
-    }
-}
 
 Mat matmuld(Mat a, Mat b) {
-    int nthr = 4;
+    //int nthr = 4;
+    omp_set_num_threads(NTHR);
     int n = a.rows;
     Mat output = Mat::zeros(n, n, CV_64FC1);
 
 
-    omp_set_num_threads(nthr);
-    #pragma omp parallel
-    {
-        #pragma omp single
-        {
-            for(int i = 0; i<n; i++){
-                #pragma omp task firstprivate(i)
-                {
-                    do_mv(a,b,output,n,i);
-                }
-            }
+    #pragma omp parallel for
+    for(int i=0; i<n; i++){
+        for(int j=0; j<n; j++){
+            // cout << omp_get_thread_num();
+            output.ATD(i,j) = a.ATD(i,j)*b.ATD(i,j);
         }
     }
-}
-
-
-  // cout << "here\n";
-
-
-
-  // int n = a.rows;
-  // Mat output = Mat::zeros(n, n, CV_64FC1);
-
-
-  // for(int i=0;i<n;i++){
-  //   for(int j=0;j<n;j++){
-  //     for(int k=0;k<n;k++){
-  //       // c[i][j] += a[i][k]*b[k][j];
-  //       // cout << "entered\n";
-  //       output.ATD(i,j) = a.ATD(i,k) * b.ATD(k,j);
-  //     }
-  //   }
-  // }
-  // // cout << "done\n";
-  // return output;
-
+    return output;
 }
 
 Mat divideMats(Mat a, Mat b){
@@ -250,7 +262,7 @@ void getLucasKanadeOpticalFlow(Mat &img1, Mat &img2, Mat &u, Mat &v){
     Mat fyft = matmuld(fy, ft);
 
     duration2 = ( clock() - start2 ) / (double) CLOCKS_PER_SEC;
-    cout<<"matmul: "<< duration2*1000 <<" milliseconds\n";
+    cout<<"matmul: "<< duration2*1000 <<" ms\n";
 
 
 
@@ -299,7 +311,7 @@ void getLucasKanadeOpticalFlow(Mat &img1, Mat &img2, Mat &u, Mat &v){
     duration3 = ( clock() - start3 ) / (double) CLOCKS_PER_SEC;
 
     /* End algorithm */
-    // cout<<"Least-Squares: "<< duration2 <<" seconds\n";
+    cout<<"Least-Squares: "<< duration2 *1000 <<" ms\n";
 
 
 
@@ -320,7 +332,7 @@ int main(){
     // Create window
     capture.set(CV_CAP_PROP_FRAME_WIDTH, 640);
     capture.set(CV_CAP_PROP_FRAME_WIDTH, 360);
-    namedWindow("hand",1);
+    // namedWindow("hand",1);
     
     // Intinite loop until manually broken by end of video or keypress
     Mat frame, current_frame, img1, img2;
@@ -331,7 +343,7 @@ int main(){
 
         // first image
         capture >> frame;
-        resize(frame, current_frame, Size(300, 300), 0, 0, INTER_CUBIC);
+        resize(frame, current_frame, Size(1000, 1000), 0, 0, INTER_CUBIC);
         GaussianBlur(current_frame, current_frame, Size(9,9), 1.5, 1.5); 
         cvtColor(current_frame, current_frame, CV_BGR2GRAY);
 
@@ -378,7 +390,7 @@ int main(){
         /* End algorithm */
         duration = ( clock() - start ) / (double) CLOCKS_PER_SEC;
 
-        // cout<<"Overall Duration: "<< duration <<" seconds\n";
+        cout<<"Overall Duration: "<< duration *1000 <<" ms\n";
         /* End timer */
 
         prevDiff = diff;
@@ -403,7 +415,7 @@ int main(){
                     avgX += j;
                     avgY += i;
                     counts++;
-                    circle(frame, Point2f(avgX, avgY), 1, Scalar(255, 0, 0), 2, 8, 0);
+                    // circle(frame, Point2f(avgX, avgY), 1, Scalar(255, 0, 0), 2, 8, 0);
 
 
                 }
@@ -428,7 +440,7 @@ int main(){
             circle(frame, Point2f(avgX, avgY), radius, Scalar(0, 0, 255), 2, 8, 0);
         }
 
-        imshow("hand", frame);
+        // imshow("hand", frame);
         if(waitKey(30) >= 0) break;
 
     }

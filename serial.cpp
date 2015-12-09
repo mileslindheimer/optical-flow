@@ -16,6 +16,7 @@
 #include <iostream>
 #include <cstdio>
 #include <ctime>
+#include <pthread.h>
 
 using namespace cv;
 using namespace std;
@@ -149,31 +150,17 @@ void saveMat(Mat &M, string s){
     fclose(pOut);
 }
 
-// void matmuld(double **a, double **b, double **c, int n) {
-//   for(int i=0;i<n;i++)
-//     for(int j=0;j<n;j++)
-//       for(int k=0;k<n;k++)
-//         c[i][j] += a[i][k]*b[k][j];
-// }
 
 Mat matmuld(Mat a, Mat b) {
-  // cout << "here\n";
-  int n = a.rows;
-  Mat output = Mat::zeros(n, n, CV_64FC1);
+    int n = a.rows;
+    Mat output = Mat::zeros(n, n, CV_64FC1);
 
-
-  for(int i=0;i<n;i++){
-    for(int j=0;j<n;j++){
-      for(int k=0;k<n;k++){
-        // c[i][j] += a[i][k]*b[k][j];
-        // cout << "entered\n";
-        output.ATD(i,j) += a.ATD(i,k) * b.ATD(k,j);
-      }
+    for(int i=0; i<n; i++){
+        for(int j=0; j<n; j++){
+            output.ATD(i,j) = a.ATD(i,j)*b.ATD(i,j);
+        }
     }
-  }
-  // cout << "done\n";
-  return output;
-
+    return output;
 }
 
 Mat divideMats(Mat a, Mat b){
@@ -196,30 +183,36 @@ void getLucasKanadeOpticalFlow(Mat &img1, Mat &img2, Mat &u, Mat &v){
     
 
     /* Start timer */
-    clock_t start2;
-    double duration2;
-
-    start2 = clock();
-
-    /* Start algorithm */
-
-    // Mat fx2 = fx.mul(fx);
-    // Mat fy2 = fy.mul(fy);
-    // Mat fxfy = fx.mul(fy);
-    // Mat fxft = fx.mul(ft);
-    // Mat fyft = fy.mul(ft);
-    
-
-    Mat fx2 = matmuld(fx,fx);
-    Mat fy2 = matmuld(fy,fy);
-    Mat fxfy = matmuld(fx,fy);
-    Mat fxft = matmuld(fx,ft);
-    Mat fyft = matmuld(fy, ft);
-
     clock_t start1;
     double duration1;
 
     start1 = clock();
+
+    /* Start algorithm */
+
+    Mat fx2 = fx.mul(fx);
+    Mat fy2 = fy.mul(fy);
+    Mat fxfy = fx.mul(fy);
+    Mat fxft = fx.mul(ft);
+    Mat fyft = fy.mul(ft);
+    
+
+    // Mat fx2 = matmuld(fx,fx);
+    // Mat fy2 = matmuld(fy,fy);
+    // Mat fxfy = matmuld(fx,fy);
+    // Mat fxft = matmuld(fx,ft);
+    // Mat fyft = matmuld(fy, ft);
+
+    /* End algorithm */
+    duration1 = ( clock() - start1 ) / (double) CLOCKS_PER_SEC;
+
+    // cout<<"Matmul: "<< duration1*1000 <<" milliseconds\n";
+    /* End timer */
+
+    clock_t start2;
+    double duration2;
+
+    start2 = clock();
 
     /* Start algorithm */
 
@@ -230,9 +223,9 @@ void getLucasKanadeOpticalFlow(Mat &img1, Mat &img2, Mat &u, Mat &v){
     Mat sumfyft = get_Sum9_Mat(fyft);
 
     /* End algorithm */
-    duration1 = ( clock() - start1 ) / (double) CLOCKS_PER_SEC;
+    duration2 = ( clock() - start2 ) / (double) CLOCKS_PER_SEC;
 
-    cout<<"Summing: "<< duration1 <<" seconds\n";
+    // cout<<"Summing: "<< duration2*1000 <<" milliseconds\n";
     /* End timer */
 
 
@@ -240,10 +233,6 @@ void getLucasKanadeOpticalFlow(Mat &img1, Mat &img2, Mat &u, Mat &v){
     double duration3;
 
     start3 = clock();
-
-    ///**** Actual Serial implementation without OpenCV
-    ///Commented out because full serial becomes too slow to output
-    ///Need to optimize matmul first
 
     // Mat tmp = matmuld(sumfx2, sumfy2) - matmuld(sumfxfy, sumfxfy);
     // u = matmuld(sumfxfy, sumfyft) - matmuld(sumfy2, sumfxft);
@@ -262,15 +251,84 @@ void getLucasKanadeOpticalFlow(Mat &img1, Mat &img2, Mat &u, Mat &v){
     duration3 = ( clock() - start3 ) / (double) CLOCKS_PER_SEC;
 
     /* End algorithm */
-    duration2 = ( clock() - start2 ) / (double) CLOCKS_PER_SEC;
-    cout<<"Least-Squares: "<< duration2 <<" seconds\n";
+    duration3 = ( clock() - start3 ) / (double) CLOCKS_PER_SEC;
+    // cout<<"Least-Squares: "<< duration3*1000 <<" milliseconds\n";
 
-
-    cout<<"Lucas-Kanade: "<< duration2 <<" seconds\n";
     /* End timer */
 
 //    saveMat(u, "U");
 //    saveMat(v, "V");   
+}
+
+vector<Mat> getGaussianPyramid(Mat &img, int nLevels){
+    vector<Mat> pyr;
+    pyr.push_back(img);
+    for(int i = 0; i < nLevels - 1; i++){
+        Mat tmp;
+        pyrDown(pyr[pyr.size() - 1], tmp);
+        pyr.push_back(tmp);
+    }
+    return pyr;
+}
+
+void coarseToFineEstimation(Mat &img1, Mat &img2, Mat &u, Mat &v, int nLevels){
+
+    vector<Mat> pyr1 = getGaussianPyramid(img1, nLevels);
+    vector<Mat> pyr2 = getGaussianPyramid(img2, nLevels);
+    Mat upu, upv;
+    for(int i = nLevels - 1; i >= 0; i--){
+
+        Mat tmpu = Mat::zeros(pyr1[i].rows, pyr1[i].cols, CV_64FC1);
+        Mat tmpv = Mat::zeros(pyr2[i].rows, pyr2[i].cols, CV_64FC1);
+        getLucasKanadeOpticalFlow(pyr1[i], pyr2[i], tmpu, tmpv);
+        if(i != nLevels - 1){
+            tmpu += upu;
+            tmpv += upv;
+        }
+        if(i == 0){
+            u = tmpu;
+            v = tmpv;
+            return;
+        }
+        pyrUp(tmpu, upu);
+        pyrUp(tmpv, upv);
+
+        Mat map1(upu.size(), CV_32FC2);
+        Mat map2(upu.size(), CV_32FC2);
+        for (int y = 0; y < map1.rows; ++y){
+            for (int x = 0; x < map1.cols; ++x){
+                Point2f f = Point2f((float)(upu.ATD(y, x)), (float)(upv.ATD(y, x)));
+                map1.at<Point2f>(y, x) = Point2f(x + f.x / 2, y + f.y / 2);
+                map2.at<Point2f>(y, x) = Point2f(x - f.x / 2, y - f.y / 2);
+            }
+        }
+        Mat warped1, warped2;
+        remap(pyr1[i - 1], warped1, map1, cv::Mat(), INTER_LINEAR);
+        remap(pyr2[i - 1], warped2, map2, cv::Mat(), INTER_LINEAR);
+        warped1.copyTo(pyr1[i - 1]);
+        warped2.copyTo(pyr2[i - 1]);
+    }
+}
+
+int getMaxLayer(Mat &img){
+    int width = img.cols;
+    int height = img.rows;
+    int res = 1;
+    int p = 1;
+    while(1){
+        int tmp = pow(2, p);
+        if(width % tmp == 0) ++ p;
+        else break;
+    }
+    res = p;
+    p = 1;
+    while(1){
+        int tmp = pow(2, p);
+        if(height % tmp == 0) ++ p;
+        else break;
+    }
+    res = res < p ? res : p;
+    return res;
 }
 
 #define DIFF_THRESH 10
@@ -284,8 +342,8 @@ int main(){
     VideoCapture capture(0);
 
     // Create window
-    capture.set(CV_CAP_PROP_FRAME_WIDTH, 640);
-    capture.set(CV_CAP_PROP_FRAME_WIDTH, 360);
+    capture.set(CV_CAP_PROP_FRAME_WIDTH, 1080);
+    capture.set(CV_CAP_PROP_FRAME_WIDTH, 1080);
     namedWindow("hand",1);
     
     // Intinite loop until manually broken by end of video or keypress
@@ -297,7 +355,7 @@ int main(){
 
         // first image
         capture >> frame;
-        resize(frame, current_frame, Size(300, 300), 0, 0, INTER_CUBIC);
+        resize(frame, current_frame, Size(1080, 1080), 0, 0, INTER_CUBIC);
         GaussianBlur(current_frame, current_frame, Size(9,9), 1.5, 1.5); 
         cvtColor(current_frame, current_frame, CV_BGR2GRAY);
 
@@ -340,11 +398,14 @@ int main(){
         start = clock();
 
         /* Start algorithm */
-        getLucasKanadeOpticalFlow(prevDiff, diff, u, v);
+        // getLucasKanadeOpticalFlow(prevDiff, diff, u, v);
+
+        int maxLayer = getMaxLayer(prevDiff);
+        coarseToFineEstimation(prevDiff, diff, u, v, maxLayer);
         /* End algorithm */
         duration = ( clock() - start ) / (double) CLOCKS_PER_SEC;
 
-        cout<<"Overall Duration: "<< duration <<" seconds\n";
+        // cout<<"Overall Duration: "<< duration*1000 <<" milliseconds\n";
         /* End timer */
 
         prevDiff = diff;
@@ -369,7 +430,7 @@ int main(){
                     avgX += j;
                     avgY += i;
                     counts++;
-                    circle(frame, Point2f(avgX, avgY), 1, Scalar(255, 0, 0), 2, 8, 0);
+                    // circle(frame, Point2f(avgX, avgY), 1, Scalar(255, 0, 0), 2, 8, 0);
 
 
                 }
