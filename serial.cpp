@@ -206,7 +206,7 @@ void getLucasKanadeOpticalFlow(Mat &img1, Mat &img2, Mat &u, Mat &v){
     /* End algorithm */
     duration1 = ( clock() - start1 ) / (double) CLOCKS_PER_SEC;
 
-    // cout<<"Matmul: "<< duration1*1000 <<" milliseconds\n";
+    cout<<"Matmul: "<< duration1*1000 <<" milliseconds\n";
     /* End timer */
 
     clock_t start2;
@@ -225,7 +225,7 @@ void getLucasKanadeOpticalFlow(Mat &img1, Mat &img2, Mat &u, Mat &v){
     /* End algorithm */
     duration2 = ( clock() - start2 ) / (double) CLOCKS_PER_SEC;
 
-    // cout<<"Summing: "<< duration2*1000 <<" milliseconds\n";
+    cout<<"Summing: "<< duration2*1000 <<" milliseconds\n";
     /* End timer */
 
 
@@ -252,7 +252,7 @@ void getLucasKanadeOpticalFlow(Mat &img1, Mat &img2, Mat &u, Mat &v){
 
     /* End algorithm */
     duration3 = ( clock() - start3 ) / (double) CLOCKS_PER_SEC;
-    // cout<<"Least-Squares: "<< duration3*1000 <<" milliseconds\n";
+    cout<<"Least-Squares: "<< duration3*1000 <<" milliseconds\n";
 
     /* End timer */
 
@@ -400,12 +400,13 @@ int main(){
         /* Start algorithm */
         // getLucasKanadeOpticalFlow(prevDiff, diff, u, v);
 
-        int maxLayer = getMaxLayer(prevDiff);
+        //int maxLayer = getMaxLayer(prevDiff);
+        int maxLayer = 4;
         coarseToFineEstimation(prevDiff, diff, u, v, maxLayer);
         /* End algorithm */
         duration = ( clock() - start ) / (double) CLOCKS_PER_SEC;
 
-        // cout<<"Overall Duration: "<< duration*1000 <<" milliseconds\n";
+        cout<<"Overall Duration: "<< duration*1000 <<" milliseconds\n";
         /* End timer */
 
         prevDiff = diff;
