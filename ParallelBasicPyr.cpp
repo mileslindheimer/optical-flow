@@ -651,12 +651,25 @@ void coarseToFineEstimation(Mat &img1, Mat &img2, Mat &u, Mat &v, int nLevels){
         
         #pragma omp parallel for
         for (int y = 0; y < map1.rows; ++y){
+            double* upuPtr = upu.ptr<double>(y);
+            double* upvPtr = upv.ptr<double>(y);
+            Point2f* map1Ptr = map1.ptr<Point2f>(y);
+            Point2f* map2Ptr = map2.ptr<Point2f>(y);
             for (int x = 0; x < map1.cols; ++x){
-                Point2f f = Point2f((float)(upu.ATD(y, x)), (float)(upv.ATD(y, x)));
-                map1.at<Point2f>(y, x) = Point2f(x + f.x / 2, y + f.y / 2);
-                map2.at<Point2f>(y, x) = Point2f(x - f.x / 2, y - f.y / 2);
+                float upuElem = (float)upuPtr[x];
+                float upvElem = (float)upvPtr[x];
+                Point2f f = Point2f(upuElem, upvElem);
+                map1Ptr[x] = Point2f(x + f.x / 2, y + f.y / 2);
+                map2Ptr[x] = Point2f(x - f.x / 2, y - f.y / 2);
+                /*
+                 Point2f f = Point2f((float)(upu.ATD(y, x)), (float)(upv.ATD(y, x)));
+                 map1.at<Point2f>(y, x) = Point2f(x + f.x / 2, y + f.y / 2);
+                 map2.at<Point2f>(y, x) = Point2f(x - f.x / 2, y - f.y / 2);*/
             }
         }
+        
+        
+        
         Mat warped1, warped2;
         
         
