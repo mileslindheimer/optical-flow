@@ -165,22 +165,20 @@ Mat get_Sum9_Mat(Mat &m){
     omp_set_num_threads(nthr);
     
     /*
-     #pragma omp parallel for
-     for(int j = 1; j < m.cols - 1; j++){
-     //don't put this here: #pragma omp parallel for
-     for(int i = 1; i < m.rows - 1; i++){
-     res.ATD(i, j) = get_Sum9(m, i, j);
-     }
-     //cout << "Thread count: " << omp_get_num_threads() << "\n";
-     }
-     */
-    
     #pragma omp parallel for
     for(int i = 1; i < m.rows - 1; i++){
         for(int j = 1; j < m.cols - 1; j++){
             res.ATD(i, j) = get_Sum9(m, i, j);
         }
-        //cout << "Thread count: " << omp_get_num_threads() << "\n";
+    }*/
+    
+    
+    #pragma omp parallel for
+    for(int i = 1; i < nRows - 1; i++){
+        double* p = res.ptr<double>(i);
+        for(int j = 1; j < nCols - 1; j++){
+            p[j] = get_Sum9(m, i, j);
+        }
     }
     
     return res;
@@ -223,10 +221,10 @@ Mat matMul(Mat a, Mat b){
      */
     
     #pragma omp parallel for
-    for (int r=0; r<a.rows; r++){
-        //#pragma omp parallel for
-        for (int c =0; c<a.cols; c++){
-            res.ATD(r,c) = a.ATD(r,c) * b.ATD(r,c);
+    for(int i = 1; i < nRows - 1; i++){
+        double* p = res.ptr<double>(i);
+        for(int j = 1; j < nCols - 1; j++){
+            p[j] = get_Sum9(m, i, j);
         }
     }
     return res;
@@ -674,11 +672,11 @@ int main(){
     
     
     
-    capture.set(CV_CAP_PROP_FRAME_WIDTH, 1080);
-    capture.set(CV_CAP_PROP_FRAME_WIDTH, 1080);
+    //capture.set(CV_CAP_PROP_FRAME_WIDTH, 800);
+    //capture.set(CV_CAP_PROP_FRAME_WIDTH, 800);
     
-    //capture.set(CV_CAP_PROP_FRAME_WIDTH, 200);
-    //capture.set(CV_CAP_PROP_FRAME_WIDTH, 200);
+    capture.set(CV_CAP_PROP_FRAME_WIDTH, 200);
+    capture.set(CV_CAP_PROP_FRAME_WIDTH, 200);
     
     
     namedWindow("hand",1);
@@ -703,11 +701,11 @@ int main(){
         capture >> frame;
         //resize(frame, current_frame, Size(1080, 1080), 0, 0, INTER_CUBIC);
         
-        resize(frame, current_frame, Size(1080, 1080), 0, 0, INTER_CUBIC);
+        //resize(frame, current_frame, Size(800, 800), 0, 0, INTER_CUBIC);
         
         //resize(frame, current_frame, Size(400, 400), 0, 0, INTER_CUBIC);
         
-        //resize(frame, current_frame, Size(200, 200), 0, 0, INTER_CUBIC);
+        resize(frame, current_frame, Size(200, 200), 0, 0, INTER_CUBIC);
         
         GaussianBlur(current_frame, current_frame, Size(9,9), 1.5, 1.5);
         cvtColor(current_frame, current_frame, CV_BGR2GRAY);

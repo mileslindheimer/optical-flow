@@ -164,24 +164,28 @@ Mat get_Sum9_Mat(Mat &m){
     int nthr = 8;
     omp_set_num_threads(nthr);
     
+    int nRows = m.rows;
+    int nCols = m.cols;
+    
     /*
     #pragma omp parallel for
-    for(int j = 1; j < m.cols - 1; j++){
-        //don't put this here: #pragma omp parallel for
-        for(int i = 1; i < m.rows - 1; i++){
+    for(int i = 1; i < nRows - 1; i++){
+        for(int j = 1; j < nCols - 1; j++){
             res.ATD(i, j) = get_Sum9(m, i, j);
         }
         //cout << "Thread count: " << omp_get_num_threads() << "\n";
-    }
-    */
+    }*/
+    
+    
+    //double* p;
     
     #pragma omp parallel for
-    for(int i = 1; i < m.rows - 1; i++){
-        for(int j = 1; j < m.cols - 1; j++){
-            res.ATD(i, j) = get_Sum9(m, i, j);
+    for(int i = 1; i < nRows - 1; i++){
+        double* p = res.ptr<double>(i);
+        for(int j = 1; j < nCols - 1; j++){
+            p[j] = get_Sum9(m, i, j);
         }
-        //cout << "Thread count: " << omp_get_num_threads() << "\n";
-    }
+    } 
     
     return res;
 }
@@ -206,21 +210,11 @@ void saveMat(Mat &M, string s){
 //         c[i][j] += a[i][k]*b[k][j];
 // }
 
-
+/*
 Mat matMul(Mat a, Mat b){
     Mat res = Mat::zeros(a.rows, a.cols, CV_64FC1);
     int nthr = 4;
     omp_set_num_threads(nthr);
-    
-    /*
-    //#pragma omp parallel for
-    for (int r=0; r<a.rows; r++){
-        //#pragma omp parallel for
-        for (int c =0; c<a.cols; c++){
-            res.ATD(r,c) = a.ATD(r,c) * b.ATD(r,c);
-        }
-    }
-    */
     
     #pragma omp parallel for
     for (int r=0; r<a.rows; r++){
@@ -230,7 +224,7 @@ Mat matMul(Mat a, Mat b){
         }
     }
     return res;
-}
+}*/
 
 /*
 void do_mv(Mat a, Mat b, Mat c, int n, int i){
@@ -602,6 +596,7 @@ int main(){
             //currElem = roundf(currElem * 10000) / 10000;
             //a = roundf(a * 10000) / 10000;
             double thresh = 0.000001; //arbitrary
+            //double thresh = 0.01;
             if (abs(currElem - a) > thresh)
             {
                 cout << "NOTE: The test code may not be correct.";

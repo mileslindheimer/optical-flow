@@ -382,8 +382,8 @@ int main(){
     VideoCapture capture(0);
 
     // Create window
-    capture.set(CV_CAP_PROP_FRAME_WIDTH, 1080);
-    capture.set(CV_CAP_PROP_FRAME_WIDTH, 1080);
+    //capture.set(CV_CAP_PROP_FRAME_WIDTH, 800);
+    //capture.set(CV_CAP_PROP_FRAME_WIDTH, 800);
     
     //capture.set(CV_CAP_PROP_FRAME_WIDTH, 800);
     //capture.set(CV_CAP_PROP_FRAME_WIDTH, 800);
@@ -392,8 +392,8 @@ int main(){
     //capture.set(CV_CAP_PROP_FRAME_WIDTH, 400);
     //capture.set(CV_CAP_PROP_FRAME_WIDTH, 400);
     
-    //capture.set(CV_CAP_PROP_FRAME_WIDTH, 200);
-    //capture.set(CV_CAP_PROP_FRAME_WIDTH, 200);
+    capture.set(CV_CAP_PROP_FRAME_WIDTH, 200);
+    capture.set(CV_CAP_PROP_FRAME_WIDTH, 200);
     
     
     namedWindow("hand",1);
@@ -423,11 +423,11 @@ int main(){
         //resize(frame, current_frame, Size(1080, 1080), 0, 0, INTER_CUBIC);
         
         
-        resize(frame, current_frame, Size(1080, 1080), 0, 0, INTER_CUBIC);
+        //resize(frame, current_frame, Size(800, 800), 0, 0, INTER_CUBIC);
         
         //resize(frame, current_frame, Size(400, 400), 0, 0, INTER_CUBIC);
         
-        //resize(frame, current_frame, Size(200, 200), 0, 0, INTER_CUBIC);
+        resize(frame, current_frame, Size(200, 200), 0, 0, INTER_CUBIC);
         
         
         
