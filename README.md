@@ -3,9 +3,9 @@ Hand Gesture Recognition using Optical Flow Analysis
 
 ParallelVideoPyr.cpp is our final optimized code.
 
-How to run: //
-make // 
-./ParallelVideoPyr //
+How to run: \\
+make \\
+./ParallelVideoPyr \\
 
 
 
