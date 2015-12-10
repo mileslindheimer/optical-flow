@@ -400,7 +400,7 @@ void getLucasKanadeOpticalFlow(Mat &img1, Mat &img2, Mat &u, Mat &v){
     
     
     /* Start timer */
-    
+    time = timestamp();
     /* Start algorithm */
     
     Mat fx2;
@@ -669,11 +669,16 @@ int main(){
     //capture.set(CV_CAP_PROP_FRAME_WIDTH, 1080);
     
     
-    //capture.set(CV_CAP_PROP_FRAME_WIDTH, 400);
-    //capture.set(CV_CAP_PROP_FRAME_WIDTH, 400);
+    //capture.set(CV_CAP_PROP_FRAME_WIDTH, 800);
+    //capture.set(CV_CAP_PROP_FRAME_WIDTH, 800);
     
-    capture.set(CV_CAP_PROP_FRAME_WIDTH, 200);
-    capture.set(CV_CAP_PROP_FRAME_WIDTH, 200);
+    
+    
+    capture.set(CV_CAP_PROP_FRAME_WIDTH, 1080);
+    capture.set(CV_CAP_PROP_FRAME_WIDTH, 1080);
+    
+    //capture.set(CV_CAP_PROP_FRAME_WIDTH, 200);
+    //capture.set(CV_CAP_PROP_FRAME_WIDTH, 200);
     
     
     namedWindow("hand",1);
@@ -685,15 +690,24 @@ int main(){
     bool firstPassDiff = true;
     for(;;){
         
+        
+        
+        
+        double totalStart = timestamp();
+        
+        
+        
+        
+        
         // first image
         capture >> frame;
         //resize(frame, current_frame, Size(1080, 1080), 0, 0, INTER_CUBIC);
         
-        //resize(frame, current_frame, Size(800, 800), 0, 0, INTER_CUBIC);
+        resize(frame, current_frame, Size(1080, 1080), 0, 0, INTER_CUBIC);
         
         //resize(frame, current_frame, Size(400, 400), 0, 0, INTER_CUBIC);
         
-        resize(frame, current_frame, Size(200, 200), 0, 0, INTER_CUBIC);
+        //resize(frame, current_frame, Size(200, 200), 0, 0, INTER_CUBIC);
         
         GaussianBlur(current_frame, current_frame, Size(9,9), 1.5, 1.5);
         cvtColor(current_frame, current_frame, CV_BGR2GRAY);
@@ -797,7 +811,17 @@ int main(){
         
         imshow("hand", frame);
         if(waitKey(30) >= 0) break;
-    
+        
+        
+        
+        
+        
+        
+        
+        
+        double totalEnd = timestamp();
+        double totalElapsed = totalEnd - totalStart;
+        printf("total elapsed time of for loop = %f seconds.\n", totalElapsed);
     }
     return 0;
 }
