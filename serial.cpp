@@ -224,7 +224,7 @@ void getLucasKanadeOpticalFlow(Mat &img1, Mat &img2, Mat &u, Mat &v){
     /* End algorithm */
     //duration1 = ( clock() - start1 ) / (double) CLOCKS_PER_SEC;
 
-    // cout<<"Matmul: "<< duration1*1000 <<" milliseconds\n";
+    //cout<<"Matmul: "<< duration1*1000 <<" milliseconds\n";
     /* End timer */
 
    
@@ -236,6 +236,7 @@ void getLucasKanadeOpticalFlow(Mat &img1, Mat &img2, Mat &u, Mat &v){
     Mat sumfxft = get_Sum9_Mat(fxft);
     Mat sumfxfy = get_Sum9_Mat(fxfy);
     Mat sumfyft = get_Sum9_Mat(fyft);
+
 
 
 
@@ -255,8 +256,10 @@ void getLucasKanadeOpticalFlow(Mat &img1, Mat &img2, Mat &u, Mat &v){
     divide(u, tmp, u);
     divide(v, tmp, v);
 
-    
+    new_time = timestamp();
+    elapsed = new_time - time;
     cout<<"Least-Squares: "<< elapsed <<" seconds\n";
+
 
 
     /* End timer */
@@ -379,15 +382,18 @@ int main(){
     VideoCapture capture(0);
 
     // Create window
-    //capture.set(CV_CAP_PROP_FRAME_WIDTH, 1080);
-    //capture.set(CV_CAP_PROP_FRAME_WIDTH, 1080);
+    capture.set(CV_CAP_PROP_FRAME_WIDTH, 1080);
+    capture.set(CV_CAP_PROP_FRAME_WIDTH, 1080);
+    
+    //capture.set(CV_CAP_PROP_FRAME_WIDTH, 800);
+    //capture.set(CV_CAP_PROP_FRAME_WIDTH, 800);
     
     
     //capture.set(CV_CAP_PROP_FRAME_WIDTH, 400);
     //capture.set(CV_CAP_PROP_FRAME_WIDTH, 400);
     
-    capture.set(CV_CAP_PROP_FRAME_WIDTH, 200);
-    capture.set(CV_CAP_PROP_FRAME_WIDTH, 200);
+    //capture.set(CV_CAP_PROP_FRAME_WIDTH, 200);
+    //capture.set(CV_CAP_PROP_FRAME_WIDTH, 200);
     
     
     namedWindow("hand",1);
@@ -399,6 +405,10 @@ int main(){
     bool firstPassDiff = true;
     for(;;){
 
+        
+        
+        double totalStart = timestamp();
+        
         
         
         newStart = timestamp();
@@ -413,11 +423,11 @@ int main(){
         //resize(frame, current_frame, Size(1080, 1080), 0, 0, INTER_CUBIC);
         
         
-        //resize(frame, current_frame, Size(800, 800), 0, 0, INTER_CUBIC);
+        resize(frame, current_frame, Size(1080, 1080), 0, 0, INTER_CUBIC);
         
         //resize(frame, current_frame, Size(400, 400), 0, 0, INTER_CUBIC);
         
-        resize(frame, current_frame, Size(200, 200), 0, 0, INTER_CUBIC);
+        //resize(frame, current_frame, Size(200, 200), 0, 0, INTER_CUBIC);
         
         
         
@@ -470,15 +480,23 @@ int main(){
          */
         /* Start algorithm */
         // getLucasKanadeOpticalFlow(prevDiff, diff, u, v);
+
         newStart = timestamp();
         int maxLayer = getMaxLayer(prevDiff);
+
+
+        //int maxLayer = getMaxLayer(prevDiff);
+        //int maxLayer = 4;
+
         coarseToFineEstimation(prevDiff, diff, u, v, maxLayer);
         newEnd = timestamp();
         /* End algorithm */
-        //duration = ( clock() - start ) / (double) CLOCKS_PER_SEC;
+
+
         newElapsed = newEnd - newStart;
         printf("total elapsed time (pyramid) = %f seconds.\n", newElapsed);
-        //cout<<"Overall Duration: "<< duration*1000 <<" milliseconds\n";
+
+
         /* End timer */
 
         
@@ -555,6 +573,12 @@ int main(){
         
         
         if(waitKey(30) >= 0) break;
+        
+        
+        
+        double totalEnd = timestamp();
+        double totalElapsed = totalEnd - totalStart;
+        printf("total elapsed time of for loop = %f seconds.\n", totalElapsed);
 
     }
     return 0;

@@ -33,58 +33,6 @@ using namespace std;
 
 #define NTHR 2
 
-// typedef struct
-// {
-//   double **a;
-//   double **b;
-//   double **c;
-//   int start;
-//   int end;
-// } worker_t;
-
-// void *matmuld_worker(void *arg)
-// {
-//   worker_t *t = static_cast<worker_t*>(arg);
-//   double **a = t->a;
-//   double **b = t->b;
-//   double **c = t->c;
-//   for(int i = t->start; i < t->end; i++)
-//     {
-//       for(int j = 0; j < 1024; j++)
-//     {
-//       for(int k = 0; k < 1024; k++)
-//         {
-//           c[i][j] += a[i][k]*b[k][j];
-//         }
-//     }
-//     }
-// }
-
-// void pthread_matmuld(double **a,
-//              double **b,
-//              double **c,
-//              int nthr)
-// {
-//   /* CS194: use pthreads to launch 
-//    * matrix multply worker threads.
-//    *
-//    * The structure and worker function
-//    * are good hints...
-//    */
-//   pthread_t *thr = new pthread_t[nthr];
-//   worker_t *tInfo = new worker_t[nthr];
-
-//   tInfo[0].a = a;
-//   tInfo[0].b = b;
-//   tInfo[0].c = c;
-//   tInfo[0].start = 0;
-//   tInfo[0].end = 1024;
-//   matmuld_worker((void*)tInfo);
-  
-//   delete [] thr;
-//   delete [] tInfo;
-// }
-
 Mat get_fx(Mat &src1, Mat &src2){
     Mat fx;
     Mat kernel = Mat::ones(2, 2, CV_64FC1);
@@ -206,12 +154,10 @@ void saveMat(Mat &M, string s){
 
 Mat matmuld(Mat a, Mat b) {
     //int nthr = 4;
-    omp_set_num_threads(NTHR);
     int n = a.rows;
     Mat output = Mat::zeros(n, n, CV_64FC1);
 
 
-    #pragma omp parallel for
     for(int i=0; i<n; i++){
         for(int j=0; j<n; j++){
             // cout << omp_get_thread_num();
@@ -221,16 +167,14 @@ Mat matmuld(Mat a, Mat b) {
     return output;
 }
 
-Mat divideMats(Mat a, Mat b){
+void divideMats(Mat &a, Mat &b, Mat &output){
     int n = a.rows;
-    Mat output = Mat::zeros(n, n, CV_64FC1);
 
     for(int i = 0; i<n; i++){
         for(int j = 0; j<n; j++){
             output.ATD(i,j) = a.ATD(i,j)/b.ATD(i,j);
         }
     }
-    return output;
 }
 
 void getLucasKanadeOpticalFlow(Mat &img1, Mat &img2, Mat &u, Mat &v){
@@ -282,7 +226,7 @@ void getLucasKanadeOpticalFlow(Mat &img1, Mat &img2, Mat &u, Mat &v){
     /* End algorithm */
     duration1 = ( clock() - start1 ) / (double) CLOCKS_PER_SEC;
 
-    // cout<<"Summing: "<< duration1 <<" seconds\n";
+    cout<<"Summing: "<< duration1 *1000 <<" ms\n";
     /* End timer */
 
 
@@ -291,32 +235,133 @@ void getLucasKanadeOpticalFlow(Mat &img1, Mat &img2, Mat &u, Mat &v){
 
     start3 = clock();
 
-    ///**** Actual Serial implementation without OpenCV
-    ///Commented out because full serial becomes too slow to output
-    ///Need to optimize matmul first
+    /* Actual Serial implementation without OpenCV
+    /Commented out because full serial becomes too slow to output
+    /Need to optimize matmul first*/
 
-    // Mat tmp = matmuld(sumfx2, sumfy2) - matmuld(sumfxfy, sumfxfy);
-    // u = matmuld(sumfxfy, sumfyft) - matmuld(sumfy2, sumfxft);
-    // v = matmuld(sumfxft, sumfxfy) - matmuld(sumfx2, sumfyft);
-    // u = divideMats(u, tmp);
-    // v = divideMats(v, tmp);
+    Mat tmp = matmuld(sumfx2, sumfy2) - matmuld(sumfxfy, sumfxfy);
+    u = matmuld(sumfxfy, sumfyft) - matmuld(sumfy2, sumfxft);
+    v = matmuld(sumfxft, sumfxfy) - matmuld(sumfx2, sumfyft);
+
+    divideMats(u, tmp, u);
+    divideMats(v, tmp, v);
 
 
-    Mat tmp = sumfx2.mul(sumfy2) - sumfxfy.mul(sumfxfy);
-    u = sumfxfy.mul(sumfyft) - sumfy2.mul(sumfxft);
-    v = sumfxft.mul(sumfxfy) - sumfx2.mul(sumfyft);
-    divide(u, tmp, u);
-    divide(v, tmp, v);
+    // Mat tmp = sumfx2.mul(sumfy2) - sumfxfy.mul(sumfxfy);
+    // u = sumfxfy.mul(sumfyft) - sumfy2.mul(sumfxft);
+    // v = sumfxft.mul(sumfxfy) - sumfx2.mul(sumfyft);
+    // divide(u, tmp, u);
+    // divide(v, tmp, v);
 
     duration3 = ( clock() - start3 ) / (double) CLOCKS_PER_SEC;
 
     /* End algorithm */
-    cout<<"Least-Squares: "<< duration2 *1000 <<" ms\n";
+    cout<<"Least-Squares: "<< duration3 *1000 <<" ms\n";
 
 
 
 //    saveMat(u, "U");
 //    saveMat(v, "V");   
+}
+
+vector<Mat> getGaussianPyramid(Mat &img, int nLevels){
+    vector<Mat> pyr;
+    pyr.push_back(img);
+    for(int i = 0; i < nLevels - 1; i++){
+        Mat tmp;
+        pyrDown(pyr[pyr.size() - 1], tmp);
+        pyr.push_back(tmp);
+    }
+    return pyr;
+}
+
+void coarseToFineEstimation(Mat &img1, Mat &img2, Mat &u, Mat &v, int nLevels){
+
+    vector<Mat> pyr1 = getGaussianPyramid(img1, nLevels);
+    vector<Mat> pyr2 = getGaussianPyramid(img2, nLevels);
+    Mat upu, upv;
+    for(int i = nLevels - 1; i >= 0; i--){
+
+        Mat tmpu = Mat::zeros(pyr1[i].rows, pyr1[i].cols, CV_64FC1);
+        Mat tmpv = Mat::zeros(pyr2[i].rows, pyr2[i].cols, CV_64FC1);
+        // clock_t startLK;
+        // double durationLK;
+
+        // startLK = clock();
+
+        getLucasKanadeOpticalFlow(pyr1[i], pyr2[i], tmpu, tmpv);
+    
+        // durationLK = ( clock() - startLK ) / (double) CLOCKS_PER_SEC;
+
+        // cout<<"LK: "<< durationLK *1000 <<" ms\n";
+
+        clock_t startIP;
+        double durationIP;
+
+        startIP = clock();
+
+        if(i != nLevels - 1){
+            tmpu += upu;
+            tmpv += upv;
+        }
+        if(i == 0){
+            u = tmpu;
+            v = tmpv;
+            return;
+        }
+        pyrUp(tmpu, upu);
+        pyrUp(tmpv, upv);
+
+        Mat map1(upu.size(), CV_32FC2);
+        Mat map2(upu.size(), CV_32FC2);
+        for (int y = 0; y < map1.rows; ++y){
+            for (int x = 0; x < map1.cols; ++x){
+                Point2f f = Point2f((float)(upu.ATD(y, x)), (float)(upv.ATD(y, x)));
+                map1.at<Point2f>(y, x) = Point2f(x + f.x / 2, y + f.y / 2);
+                map2.at<Point2f>(y, x) = Point2f(x - f.x / 2, y - f.y / 2);
+            }
+        }
+
+        durationIP = ( clock() - startIP) / (double) CLOCKS_PER_SEC;
+
+        cout<<"Interpolation: "<< durationIP *1000 <<" ms\n";
+
+        clock_t startOCVIP;
+        double durationOCVIP;
+
+        startOCVIP = clock();
+
+        Mat warped1, warped2;
+        remap(pyr1[i - 1], warped1, map1, cv::Mat(), INTER_LINEAR);
+        remap(pyr2[i - 1], warped2, map2, cv::Mat(), INTER_LINEAR);
+        warped1.copyTo(pyr1[i - 1]);
+        warped2.copyTo(pyr2[i - 1]);
+
+        durationOCVIP = ( clock() - startOCVIP) / (double) CLOCKS_PER_SEC;
+
+        cout<<"OpenCV Interpolation stuff: "<< durationOCVIP *1000 <<" ms\n";
+    }
+}
+
+int getMaxLayer(Mat &img){
+    int width = img.cols;
+    int height = img.rows;
+    int res = 1;
+    int p = 1;
+    while(1){
+        int tmp = pow(2, p);
+        if(width % tmp == 0) ++ p;
+        else break;
+    }
+    res = p;
+    p = 1;
+    while(1){
+        int tmp = pow(2, p);
+        if(height % tmp == 0) ++ p;
+        else break;
+    }
+    res = res < p ? res : p;
+    return res;
 }
 
 #define DIFF_THRESH 10
@@ -330,8 +375,8 @@ int main(){
     VideoCapture capture(0);
 
     // Create window
-    capture.set(CV_CAP_PROP_FRAME_WIDTH, 640);
-    capture.set(CV_CAP_PROP_FRAME_WIDTH, 360);
+   capture.set(CV_CAP_PROP_FRAME_WIDTH, 1000);
+   capture.set(CV_CAP_PROP_FRAME_WIDTH, 1000);
     // namedWindow("hand",1);
     
     // Intinite loop until manually broken by end of video or keypress
@@ -387,6 +432,10 @@ int main(){
 
         /* Start algorithm */
         getLucasKanadeOpticalFlow(prevDiff, diff, u, v);
+
+        // int maxLayer = getMaxLayer(prevDiff);
+        int maxLayer = 4;
+        coarseToFineEstimation(prevDiff, diff, u, v, maxLayer);
         /* End algorithm */
         duration = ( clock() - start ) / (double) CLOCKS_PER_SEC;
 
@@ -436,11 +485,13 @@ int main(){
         avgX *= scale;
         avgY *= scale;
 
+        // cout << "scale: " << scale << "\n";
+
         if (counts > 500) {
             circle(frame, Point2f(avgX, avgY), radius, Scalar(0, 0, 255), 2, 8, 0);
         }
 
-        // imshow("hand", frame);
+        //imshow("hand", frame);
         if(waitKey(30) >= 0) break;
 
     }
